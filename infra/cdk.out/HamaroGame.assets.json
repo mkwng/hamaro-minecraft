@@ -61,16 +61,16 @@
         }
       }
     },
-    "2b2ebb354df608da7db26b6b895412d91deafdd440ff46331d83d4edb9fec767": {
+    "c7e962d509db4ba4dbed898284fa16cda548690ad76f83a801623dd4d5936a46": {
       "displayName": "HamaroGame Template",
       "source": {
         "path": "HamaroGame.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "414716064140-us-west-2-5599e5dc": {
+        "414716064140-us-west-2-9bda2803": {
           "bucketName": "cdk-hnb659fds-assets-414716064140-us-west-2",
-          "objectKey": "2b2ebb354df608da7db26b6b895412d91deafdd440ff46331d83d4edb9fec767.json",
+          "objectKey": "c7e962d509db4ba4dbed898284fa16cda548690ad76f83a801623dd4d5936a46.json",
           "region": "us-west-2",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-west-2"
         }

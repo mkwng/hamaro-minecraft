@@ -327,7 +327,7 @@
   "McSgC28BCE66": {
    "Type": "AWS::EC2::SecurityGroup",
    "Properties": {
-    "GroupDescription": "Hamaro Minecraft — game port only, no SSH (SSM instead)",
+    "GroupDescription": "Hamaro Minecraft - game port only, no SSH (SSM instead)",
     "SecurityGroupEgress": [
      {
       "CidrIp": "0.0.0.0/0",
@@ -1311,7 +1311,7 @@
   "WeeklySnapshots": {
    "Type": "AWS::DLM::LifecyclePolicy",
    "Properties": {
-    "Description": "Hamaro: weekly world-volume snapshots, keep 4",
+    "Description": "Hamaro weekly world-volume snapshots keep 4",
     "ExecutionRoleArn": {
      "Fn::GetAtt": [
       "DlmRoleCE7C5775",

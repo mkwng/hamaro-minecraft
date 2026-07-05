@@ -297,7 +297,7 @@ EOF`,
       managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSDataLifecycleManagerServiceRole")],
     });
     new dlm.CfnLifecyclePolicy(this, "WeeklySnapshots", {
-      description: "Hamaro: weekly world-volume snapshots, keep 4",
+      description: "Hamaro weekly world-volume snapshots keep 4", // DLM allows only [0-9A-Za-z _-]
       state: "ENABLED",
       executionRoleArn: dlmRole.roleArn,
       policyDetails: {
