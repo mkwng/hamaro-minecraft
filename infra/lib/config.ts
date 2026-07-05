@@ -29,4 +29,14 @@ export const CONFIG = {
 
   budgetWarnUsd: 20,
   budgetAlarmUsd: 35,
+
+  // Website bucket + distribution (WebStack, us-east-1) — referenced by the game
+  // instance to publish the public terrain map at /map/.
+  siteBucketName: "hamaroweb-sitebucket397a1860-vvfauro7hkzh",
+  siteDistributionId: "E1BY9KADZ8GIML",
+
+  // uNmINeD CLI (terrain map renderer), linux-arm64. Downloaded once, then
+  // mirrored to s3://<data-bucket>/tools/ — delete that object to force refresh.
+  // v0.19.60 at time of pinning.
+  unminedUrl: "https://unmined.net/download/unmined-cli-linux-arm64-dev/",
 };

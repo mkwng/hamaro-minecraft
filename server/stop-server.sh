@@ -12,6 +12,10 @@ docker rm hamaro-mc >/dev/null 2>&1 || true
 # Backup after the container is down: world files are fully quiesced.
 /opt/hamaro/backup.sh || echo "[stop-server] WARN: backup failed (EBS + weekly snapshots still protect the world)"
 
+# Refresh the public terrain map while the world is quiesced (best effort —
+# never let a map render block bedtime).
+timeout 300 /opt/hamaro/render-map.sh || echo "[stop-server] WARN: map render skipped/failed"
+
 if [ "${1:-}" = "poweroff" ]; then
   # Final heartbeat so the website shows "asleep" promptly.
   aws ssm put-parameter --name /hamaro/heartbeat --type String --overwrite \

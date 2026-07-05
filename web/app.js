@@ -4,8 +4,10 @@ const API = "https://api.mc.rowan.wang";
 
 const $ = (id) => document.getElementById(id);
 let token = localStorage.getItem("hamaro-token") || "";
+let whoami = localStorage.getItem("hamaro-email") || "";
 let lastStatus = null;
-let startedAt = 0; // when we pressed Start (for the progress bar)
+let startedAt = 0;
+let warps = {};
 
 // ---------- tiny api helper ----------
 async function api(path, opts = {}) {
@@ -13,29 +15,24 @@ async function api(path, opts = {}) {
   if (token) headers.authorization = "Bearer " + token;
   const res = await fetch(API + path, { ...opts, headers });
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && token && path !== "/login") logout();
+  if (res.status === 401 && token && !path.startsWith("/login")) logout();
   if (!res.ok) throw Object.assign(new Error(data.error || res.statusText), { status: res.status, data });
   return data;
 }
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 // ---------- public status card ----------
 function setCard(face, line) { $("status-face").textContent = face; $("status-line").textContent = line; }
 function show(el, on) { $(el).classList.toggle("hidden", !on); }
 
 async function refreshStatus() {
-  try {
-    const s = await api("/status");
-    lastStatus = s;
-    render(s);
-  } catch {
-    setCard("📡", "Can't reach the control API right now — try refreshing.");
-  }
+  try { lastStatus = await api("/status"); render(lastStatus); }
+  catch { setCard("📡", "Can't reach the control API right now — try refreshing."); }
 }
 
 function render(s) {
   const srv = s.server;
   show("start-btn", false); show("progress", false); show("online-info", false);
-
   if (s.instance === "stopped") {
     setCard("😴", "The server is asleep");
     show("start-btn", true);
@@ -65,12 +62,8 @@ $("start-btn").addEventListener("click", async () => {
   try {
     await api("/start", { method: "POST", body: "{}" });
     startedAt = Date.now();
-    setCard("🌅", "Waking up…");
-    show("start-btn", false); show("progress", true);
-  } catch (e) {
-    setCard("😵", e.message);
-    $("start-btn").disabled = false;
-  }
+    setCard("🌅", "Waking up…"); show("start-btn", false); show("progress", true);
+  } catch (e) { setCard("😵", e.message); $("start-btn").disabled = false; }
 });
 
 $("copy-btn").addEventListener("click", async () => {
@@ -79,9 +72,19 @@ $("copy-btn").addEventListener("click", async () => {
   setTimeout(() => ($("copy-btn").textContent = "Copy"), 1500);
 });
 
-// ---------- admin: login ----------
+// ---------- public: ask to join ----------
+$("join-btn").addEventListener("click", async () => {
+  try {
+    const r = await api("/join-request", { method: "POST", body: JSON.stringify({ username: $("join-username").value, email: $("join-email").value }) });
+    $("join-msg").textContent = r.note;
+    $("join-username").value = ""; $("join-email").value = "";
+  } catch (e) { $("join-msg").textContent = e.message; }
+});
+
+// ---------- admin login (magic link, password fallback) ----------
 function logout() {
-  token = ""; localStorage.removeItem("hamaro-token");
+  token = ""; whoami = "";
+  localStorage.removeItem("hamaro-token"); localStorage.removeItem("hamaro-email");
   show("admin-panel", false); show("login-box", true);
 }
 $("logout-btn").addEventListener("click", logout);
@@ -89,21 +92,48 @@ $("logout-btn").addEventListener("click", logout);
 $("login-btn").addEventListener("click", async () => {
   $("login-err").textContent = "";
   try {
+    const r = await api("/login-request", { method: "POST", body: JSON.stringify({ email: $("login-email").value }) });
+    $("login-msg").textContent = r.note;
+  } catch (e) { $("login-err").textContent = e.message; }
+});
+
+$("pw-login-btn").addEventListener("click", async () => {
+  $("login-err").textContent = "";
+  try {
     const r = await api("/login", { method: "POST", body: JSON.stringify({ password: $("password").value }) });
-    token = r.token; localStorage.setItem("hamaro-token", token);
+    token = r.token; whoami = "password login";
+    localStorage.setItem("hamaro-token", token); localStorage.setItem("hamaro-email", whoami);
     $("password").value = "";
     enterAdmin();
   } catch (e) { $("login-err").textContent = e.message; }
 });
-$("password").addEventListener("keydown", (e) => { if (e.key === "Enter") $("login-btn").click(); });
+$("password").addEventListener("keydown", (e) => { if (e.key === "Enter") $("pw-login-btn").click(); });
+
+// Arriving via a magic link? (?login=<token>)
+(async function magicArrival() {
+  const t = new URLSearchParams(location.search).get("login");
+  if (!t) return;
+  history.replaceState(null, "", location.pathname);
+  try {
+    const r = await api("/login-verify", { method: "POST", body: JSON.stringify({ token: t }) });
+    token = r.token; whoami = r.email;
+    localStorage.setItem("hamaro-token", token); localStorage.setItem("hamaro-email", whoami);
+    document.getElementById("admin").open = true;
+    enterAdmin();
+  } catch (e) {
+    document.getElementById("admin").open = true;
+    $("login-err").textContent = e.message;
+  }
+})();
 
 function enterAdmin() {
   show("login-box", false); show("admin-panel", true);
-  loadWorlds(); loadSettings(); loadBackups();
+  $("whoami").textContent = whoami ? `signed in as ${whoami}` : "";
+  loadWorlds(); loadSettings(); loadBackups(); loadRequests(); loadAdmins(); loadWarps(); refreshOnline();
 }
 if (token) enterAdmin();
 
-// ---------- admin: tabs ----------
+// ---------- tabs ----------
 document.querySelectorAll(".tab").forEach((b) =>
   b.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === b));
@@ -112,7 +142,7 @@ document.querySelectorAll(".tab").forEach((b) =>
   })
 );
 
-// ---------- op progress (SSM command polling) ----------
+// ---------- op progress ----------
 async function watchOp(commandId, label) {
   const box = $("op-status");
   box.classList.remove("hidden");
@@ -131,29 +161,194 @@ async function watchOp(commandId, label) {
   box.textContent = `${label}: still running — check back`;
 }
 
-// ---------- worlds ----------
-const DEFAULT_ENV = (base) => (base || `TYPE=PAPER
-VERSION=26.2
-MEMORY=6G
-MOTD=New Hamaro world
-DIFFICULTY=easy
-MODE=survival
-ENABLE_WHITELIST=TRUE
-ENFORCE_WHITELIST=TRUE
-EXISTING_WHITELIST_FILE=SYNCHRONIZE
-WHITELIST=
-EXISTING_OPS_FILE=SYNCHRONIZE
-OPS=
-`);
+// ---------- players: online list with give / tp / inventory ----------
+async function refreshOnline() {
+  if (!token) return;
+  try {
+    const r = await api("/players");
+    const box = $("online-list");
+    if (!r.serverUp) { box.textContent = "(server is asleep)"; return; }
+    if (!r.online.length) { box.textContent = "(nobody on right now)"; return; }
+    box.innerHTML = "";
+    r.online.forEach((p) => {
+      const div = document.createElement("div");
+      div.className = "player-card";
+      const warpOpts = Object.keys(warps).map((w) => `<option>${esc(w)}</option>`).join("");
+      div.innerHTML = `
+        <b>${esc(p.name)}</b>
+        <span class="hint">${esc(p.dimension || "?")} · ${p.x ?? "?"}, ${p.y ?? "?"}, ${p.z ?? "?"}</span>
+        <span class="spacer"></span>
+        <button data-act="inv">Inventory</button>
+        <button data-act="spot">Save spot as warp</button>
+        <span class="giverow">
+          <input data-role="item" list="item-ideas" placeholder="item (e.g. diamond)" style="max-width:170px">
+          <input data-role="count" value="1" inputmode="numeric" style="max-width:50px">
+          <button data-act="give">Give</button>
+        </span>
+        ${warpOpts ? `<span class="giverow"><select data-role="warp">${warpOpts}</select><button data-act="tp">TP</button></span>` : ""}
+        <div class="inv hidden"></div>`;
+      div.addEventListener("click", async (ev) => {
+        const act = ev.target.dataset?.act;
+        if (!act) return;
+        try {
+          if (act === "inv") {
+            const inv = div.querySelector(".inv");
+            inv.classList.toggle("hidden");
+            if (!inv.classList.contains("hidden")) {
+              inv.textContent = "peeking…";
+              const r2 = await api(`/players/${p.name}/inventory`);
+              inv.innerHTML = r2.items.length
+                ? r2.items.map((it) => `<span class="invitem" title="${esc(it.item)} ×${it.count}">
+                     <img src="/items/${esc(it.item)}.png" alt="" onerror="this.remove()"><i>${esc(it.item)}</i><em>×${it.count}</em></span>`).join("")
+                : "(empty-handed!)";
+            }
+          } else if (act === "give") {
+            const item = div.querySelector('[data-role="item"]').value.trim();
+            const count = div.querySelector('[data-role="count"]').value;
+            const r2 = await api("/give", { method: "POST", body: JSON.stringify({ player: p.name, item, count }) });
+            flashOp(`✔ ${r2.gave}`);
+          } else if (act === "tp") {
+            const warp = div.querySelector('[data-role="warp"]').value;
+            const r2 = await api("/tp", { method: "POST", body: JSON.stringify({ player: p.name, warp }) });
+            flashOp(`✔ ${r2.teleported}`);
+          } else if (act === "spot") {
+            const name = prompt(`Name this warp (where ${p.name} is standing):`);
+            if (!name) return;
+            await api("/warps", { method: "POST", body: JSON.stringify({ name, player: p.name }) });
+            loadWarps();
+            flashOp(`✔ warp "${name}" saved`);
+          }
+        } catch (e) { flashOp("✖ " + e.message); }
+      });
+      box.appendChild(div);
+    });
+  } catch { /* transient */ }
+}
+setInterval(() => { if (token && !document.hidden && !$("tab-players").classList.contains("hidden")) refreshOnline(); }, 10000);
 
+function flashOp(msg) {
+  const box = $("op-status");
+  box.classList.remove("hidden");
+  box.textContent = msg;
+}
+
+// ---------- warps ----------
+async function loadWarps() {
+  if (!token) return;
+  warps = (await api("/warps")).warps;
+  const ul = $("warp-list"); ul.innerHTML = "";
+  Object.entries(warps).forEach(([name, w]) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<b>${esc(name)}</b> <span class="hint">${esc(w.dimension.replace("minecraft:", ""))} · ${w.x}, ${w.y}, ${w.z}</span><span class="spacer"></span>`;
+    const rm = document.createElement("button");
+    rm.textContent = "Delete";
+    rm.onclick = async () => { await api("/warps/" + encodeURIComponent(name), { method: "DELETE" }); loadWarps(); };
+    li.appendChild(rm);
+    ul.appendChild(li);
+  });
+}
+$("warp-add").addEventListener("click", async () => {
+  try {
+    await api("/warps", { method: "POST", body: JSON.stringify({ name: $("warp-name").value.trim(), x: $("warp-x").value, y: $("warp-y").value, z: $("warp-z").value }) });
+    ["warp-name", "warp-x", "warp-y", "warp-z"].forEach((i) => ($(i).value = ""));
+    loadWarps();
+  } catch (e) { alert(e.message); }
+});
+
+// ---------- whitelist / ops (instant) ----------
+function renderRoleList(ulId, names, role) {
+  const ul = $(ulId); ul.innerHTML = "";
+  names.forEach((name) => {
+    const li = document.createElement("li");
+    li.innerHTML = `${esc(name)}<span class="spacer"></span>`;
+    const rm = document.createElement("button");
+    rm.textContent = "Remove";
+    rm.onclick = async () => {
+      const r = await api("/players/" + role, { method: "POST", body: JSON.stringify({ name, action: "remove" }) });
+      renderRoleList(ulId, r[role === "op" ? "ops" : "whitelist"], role);
+      flashOp(`✔ removed ${name} (${r.applied})`);
+    };
+    li.appendChild(rm);
+    ul.appendChild(li);
+  });
+}
+async function addRole(inputId, role) {
+  const name = $(inputId).value.trim();
+  if (!name) return;
+  const r = await api("/players/" + role, { method: "POST", body: JSON.stringify({ name, action: "add" }) });
+  $(inputId).value = "";
+  renderRoleList(role === "op" ? "opslist" : "whitelist", r[role === "op" ? "ops" : "whitelist"], role);
+  flashOp(`✔ added ${name} (${r.applied})`);
+  loadSettings(); // keep the settings textarea in sync
+}
+$("wl-add").addEventListener("click", () => addRole("wl-name", "whitelist").catch((e) => flashOp("✖ " + e.message)));
+$("op-add").addEventListener("click", () => addRole("op-name", "op").catch((e) => flashOp("✖ " + e.message)));
+
+// ---------- join requests ----------
+async function loadRequests() {
+  if (!token) return;
+  const r = await api("/join-requests");
+  const ul = $("request-list"); ul.innerHTML = "";
+  const badge = $("req-badge");
+  badge.classList.toggle("hidden", !r.requests.length);
+  badge.textContent = r.requests.length || "";
+  if (!r.requests.length) ul.innerHTML = "<li class='hint'>No pending requests.</li>";
+  r.requests.forEach((req) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<b>${esc(req.username)}</b> <span class="hint">${esc(req.email)} · ${new Date(req.at).toLocaleDateString()}</span><span class="spacer"></span>`;
+    for (const action of ["approve", "deny"]) {
+      const b = document.createElement("button");
+      b.textContent = action === "approve" ? "Approve ✔" : "Deny";
+      if (action === "deny") b.className = "danger";
+      b.onclick = async () => {
+        const res = await api("/join-requests/decide", { method: "POST", body: JSON.stringify({ username: req.username, action }) });
+        if (res.approved) flashOp(res.emailNotified ? `✔ ${req.username} whitelisted + emailed` : `✔ ${req.username} whitelisted (email couldn't be sent)`);
+        loadRequests(); loadSettings();
+        const r2 = await api("/profiles/" + (lastStatus?.activeProfile || "survival"));
+        renderPlayersFromEnv(r2.env);
+      };
+      li.appendChild(b);
+    }
+    ul.appendChild(li);
+  });
+}
+
+// ---------- admins ----------
+async function loadAdmins() {
+  if (!token) return;
+  const r = await api("/admins");
+  const ul = $("admin-list"); ul.innerHTML = "";
+  r.admins.forEach((email) => {
+    const li = document.createElement("li");
+    li.innerHTML = `${esc(email)}<span class="spacer"></span>`;
+    const rm = document.createElement("button");
+    rm.textContent = "Remove";
+    rm.onclick = async () => {
+      if (!confirm(`Remove ${email} from admins?`)) return;
+      await api("/admins", { method: "PUT", body: JSON.stringify({ admins: r.admins.filter((e) => e !== email) }) });
+      loadAdmins();
+    };
+    li.appendChild(rm);
+    ul.appendChild(li);
+  });
+}
+$("admin-add").addEventListener("click", async () => {
+  const email = $("admin-email").value.trim();
+  if (!email) return;
+  const cur = (await api("/admins")).admins;
+  await api("/admins", { method: "PUT", body: JSON.stringify({ admins: [...cur, email] }) });
+  $("admin-email").value = "";
+  loadAdmins();
+});
+
+// ---------- worlds ----------
 async function loadWorlds() {
   const r = await api("/profiles");
-  const ul = $("world-list");
-  ul.innerHTML = "";
+  const ul = $("world-list"); ul.innerHTML = "";
   r.profiles.forEach((name) => {
     const li = document.createElement("li");
     const active = name === r.active;
-    li.innerHTML = `<b>${name}</b> ${active ? '<span class="badge">active</span>' : ""}<span class="spacer"></span>`;
+    li.innerHTML = `<b>${esc(name)}</b> ${active ? '<span class="badge">active</span>' : ""}<span class="spacer"></span>`;
     if (!active) {
       const btn = document.createElement("button");
       btn.textContent = "Switch to this world";
@@ -161,7 +356,7 @@ async function loadWorlds() {
         if (!confirm(`Switch the server to "${name}"? The current world is backed up first.`)) return;
         const res = await api(`/profiles/${name}/activate`, { method: "POST", body: "{}" });
         if (res.commandId) watchOp(res.commandId, `Switching to ${name}`);
-        else alert(res.note);
+        else flashOp(res.note);
         loadWorlds(); loadSettings();
       };
       li.appendChild(btn);
@@ -169,27 +364,34 @@ async function loadWorlds() {
     ul.appendChild(li);
   });
 }
-
 $("new-world-btn").addEventListener("click", async () => {
   const name = $("new-world-name").value.trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(name)) return alert("Name: lowercase letters, numbers, dashes.");
-  // Copy the active profile's env as a starting point, keeping worlds consistent.
   let base = "";
-  try { base = (await api("/profiles/" + (lastStatus?.activeProfile || ""))).env; } catch {}
-  await api("/profiles/" + name, { method: "PUT", body: JSON.stringify({ env: DEFAULT_ENV(base) }) });
+  try { base = (await api("/profiles/" + (lastStatus?.activeProfile || "survival"))).env; } catch {}
+  const env = base || "TYPE=PAPER\nVERSION=26.2\nMEMORY=6G\nENABLE_WHITELIST=TRUE\nENFORCE_WHITELIST=TRUE\nEXISTING_WHITELIST_FILE=SYNCHRONIZE\nWHITELIST=\nEXISTING_OPS_FILE=SYNCHRONIZE\nOPS=\n";
+  await api("/profiles/" + name, { method: "PUT", body: JSON.stringify({ env }) });
   $("new-world-name").value = "";
   loadWorlds();
 });
 
-// ---------- settings (edits the ACTIVE profile) ----------
+// ---------- settings ----------
 let settingsProfile = "";
+function envGetList(env, key) {
+  const m = env.match(new RegExp(`^${key}=(.*)$`, "m"));
+  return m ? m[1].split(",").map((s) => s.trim()).filter(Boolean) : [];
+}
+function renderPlayersFromEnv(env) {
+  renderRoleList("whitelist", envGetList(env, "WHITELIST"), "whitelist");
+  renderRoleList("opslist", envGetList(env, "OPS"), "op");
+}
 async function loadSettings() {
   const r = await api("/profiles");
   settingsProfile = r.active;
   $("settings-profile").textContent = settingsProfile;
   const p = await api("/profiles/" + settingsProfile);
   $("settings-env").value = p.env;
-  renderPlayers(p.env);
+  renderPlayersFromEnv(p.env);
 }
 async function saveSettings(apply) {
   await api("/profiles/" + settingsProfile, { method: "PUT", body: JSON.stringify({ env: $("settings-env").value }) });
@@ -197,46 +399,10 @@ async function saveSettings(apply) {
     const res = await api(`/profiles/${settingsProfile}/activate`, { method: "POST", body: "{}" });
     if (res.commandId) watchOp(res.commandId, "Applying settings");
   }
-  renderPlayers($("settings-env").value);
+  renderPlayersFromEnv($("settings-env").value);
 }
 $("settings-save").addEventListener("click", () => saveSettings(false).catch((e) => alert(e.message)));
 $("settings-apply").addEventListener("click", () => saveSettings(true).catch((e) => alert(e.message)));
-
-// ---------- players (WHITELIST / OPS lines of the active profile) ----------
-function envGetList(env, key) {
-  const m = env.match(new RegExp(`^${key}=(.*)$`, "m"));
-  return m ? m[1].split(",").map((s) => s.trim()).filter(Boolean) : [];
-}
-function envSetList(env, key, list) {
-  const line = `${key}=${list.join(",")}`;
-  return env.match(new RegExp(`^${key}=`, "m")) ? env.replace(new RegExp(`^${key}=.*$`, "m"), line) : env + "\n" + line;
-}
-let wl = [], ops = [];
-function renderPlayers(env) {
-  wl = envGetList(env, "WHITELIST"); ops = envGetList(env, "OPS");
-  for (const [ulId, list, arr] of [["whitelist", wl, wl], ["opslist", ops, ops]]) {
-    const ul = $(ulId); ul.innerHTML = "";
-    list.forEach((name, i) => {
-      const li = document.createElement("li");
-      li.innerHTML = `${name}<span class="spacer"></span>`;
-      const rm = document.createElement("button");
-      rm.textContent = "Remove";
-      rm.onclick = () => { arr.splice(i, 1); syncPlayersToEnv(); };
-      li.appendChild(rm);
-      ul.appendChild(li);
-    });
-  }
-}
-function syncPlayersToEnv() {
-  let env = $("settings-env").value;
-  env = envSetList(env, "WHITELIST", wl);
-  env = envSetList(env, "OPS", ops);
-  $("settings-env").value = env;
-  renderPlayers(env);
-}
-$("wl-add").addEventListener("click", () => { const v = $("wl-name").value.trim(); if (v) { wl.push(v); $("wl-name").value = ""; syncPlayersToEnv(); } });
-$("op-add").addEventListener("click", () => { const v = $("op-name").value.trim(); if (v) { ops.push(v); $("op-name").value = ""; syncPlayersToEnv(); } });
-$("players-save").addEventListener("click", () => saveSettings(true).catch((e) => alert(e.message)));
 
 // ---------- backups ----------
 let selectedBackup = "";
@@ -247,13 +413,12 @@ async function loadBackups() {
     const li = document.createElement("li");
     const when = new Date(b.lastModified).toLocaleString();
     const mb = (b.size / 1048576).toFixed(1);
-    li.innerHTML = `<code>${b.key.split("/").pop()}</code> <span class="spacer"></span> ${when} · ${mb} MB`;
+    li.innerHTML = `<code>${esc(b.key.split("/").pop())}</code> <span class="spacer"></span> ${when} · ${mb} MB`;
     li.onclick = () => {
       selectedBackup = b.key;
       document.querySelectorAll("#backup-list li").forEach((x) => x.classList.toggle("selected", x === li));
       $("restore-btn").disabled = false;
-      const guess = b.key.split("/")[1];
-      if (!$("restore-target").value) $("restore-target").value = guess;
+      if (!$("restore-target").value) $("restore-target").value = b.key.split("/")[1];
     };
     ul.appendChild(li);
   });
@@ -275,7 +440,7 @@ $("restore-btn").addEventListener("click", async () => {
   } catch (e) { alert(e.message); }
 });
 
-// ---------- console ----------
+// ---------- console + map ----------
 $("cmd-run").addEventListener("click", async () => {
   const command = $("cmd").value.trim();
   if (!command) return;
@@ -288,6 +453,13 @@ $("cmd-run").addEventListener("click", async () => {
 });
 $("cmd").addEventListener("keydown", (e) => { if (e.key === "Enter") $("cmd-run").click(); });
 
+$("map-render").addEventListener("click", async () => {
+  try {
+    const r = await api("/map/render", { method: "POST", body: "{}" });
+    watchOp(r.commandId, "Rendering world map");
+  } catch (e) { alert(e.message); }
+});
+
 $("stop-btn").addEventListener("click", async () => {
   if (!confirm("Stop the server now? It saves and backs up first.")) return;
   try {
@@ -295,6 +467,15 @@ $("stop-btn").addEventListener("click", async () => {
     watchOp(r.commandId, "Stopping");
   } catch (e) { alert(e.message); }
 });
+
+// ---------- item ideas for the Give box ----------
+const ideas = ["diamond", "emerald", "golden_apple", "enchanted_golden_apple", "elytra", "netherite_ingot",
+  "saddle", "name_tag", "cake", "cookie", "trident", "shield", "bow", "arrow", "oak_boat", "minecart",
+  "diamond_sword", "diamond_pickaxe", "torch", "ender_pearl", "map", "compass", "spyglass", "firework_rocket"];
+const dl = document.createElement("datalist");
+dl.id = "item-ideas";
+dl.innerHTML = ideas.map((i) => `<option value="${i}">`).join("");
+document.body.appendChild(dl);
 
 // ---------- poll loop ----------
 refreshStatus();

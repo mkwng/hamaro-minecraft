@@ -20,6 +20,7 @@ import {
   aws_cloudwatch_actions as cw_actions,
   aws_budgets as budgets,
   aws_dlm as dlm,
+  aws_ses as ses,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { CONFIG as C } from "./config";
@@ -54,9 +55,30 @@ export class GameStack extends Stack {
       ],
     });
 
+    // Everything the on-instance scripts need to know. Shipped inside the synced
+    // script bundle so config additions reach the instance on its next boot —
+    // user-data only writes the bootstrap copy on very first launch.
+    const instanceEnv = [
+      `export AWS_DEFAULT_REGION=${this.region}`,
+      `HAMARO_BUCKET=${bucket.bucketName}`,
+      `HAMARO_ZONE_ID=${gameZone.hostedZoneId}`,
+      `HAMARO_DOMAIN=${C.gameDomain}`,
+      `HAMARO_ECR=${this.account}.dkr.ecr.${this.region}.amazonaws.com`,
+      `MC_IMAGE_REPO=${C.mcImageRepo}`,
+      `MC_IMAGE_TAG=${C.mcImageTag}`,
+      `IDLE_MINUTES=${C.idleMinutes}`,
+      `BOOT_GRACE_MINUTES=${C.bootGraceMinutes}`,
+      `SITE_BUCKET=${C.siteBucketName}`,
+      `SITE_DISTRIBUTION_ID=${C.siteDistributionId}`,
+      `UNMINED_URL=${C.unminedUrl}`,
+    ];
+
     // Instance-side scripts, synced to /opt/hamaro on every boot.
     const serverScripts = new s3deploy.BucketDeployment(this, "ServerScripts", {
-      sources: [s3deploy.Source.asset("../server", { exclude: ["profiles/**"] })],
+      sources: [
+        s3deploy.Source.asset("../server", { exclude: ["profiles/**"] }),
+        s3deploy.Source.data("env", instanceEnv.join("\n") + "\n"),
+      ],
       destinationBucket: bucket,
       destinationKeyPrefix: "server/",
       prune: true, // repo is the source of truth for server/ (and only server/)
@@ -105,6 +127,20 @@ export class GameStack extends Stack {
     role.addToPolicy(new iam.PolicyStatement({
       actions: ["ssm:GetParameter", "ssm:PutParameter"],
       resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/hamaro/*`],
+    }));
+    // Publish the public terrain map into the website bucket (WebStack) at /map/.
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      resources: [`arn:aws:s3:::${C.siteBucketName}/map/*`],
+    }));
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      resources: [`arn:aws:s3:::${C.siteBucketName}`],
+      conditions: { StringLike: { "s3:prefix": ["map/*"] } },
+    }));
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: ["cloudfront:CreateInvalidation"],
+      resources: [`arn:aws:cloudfront::${this.account}:distribution/${C.siteDistributionId}`],
     }));
 
     const userData = ec2.UserData.forLinux();
@@ -178,6 +214,15 @@ EOF`,
     const alerts = new sns.Topic(this, "Alerts", { displayName: "Hamaro Minecraft alerts" });
     alerts.addSubscription(new subs.EmailSubscription(C.alertEmail));
 
+    // ---------- email (magic-link login + join-request notifications) ----------
+    // Domain identity with automatic DKIM records in our own zone; sender is
+    // server@mc.rowan.wang. NOTE: account starts in SES sandbox — production
+    // access is requested at deploy time (see RUNBOOK).
+    new ses.EmailIdentity(this, "SesIdentity", {
+      identity: ses.Identity.publicHostedZone(gameZone),
+    });
+    const senderEmail = `server@${C.gameDomain}`;
+
     // ---------- control API ----------
     const apiLogs = new logs.LogGroup(this, "ApiLogs", { retention: logs.RetentionDays.ONE_MONTH });
     const apiFn = new lambda.Function(this, "ApiFn", {
@@ -193,8 +238,14 @@ EOF`,
         GAME_DOMAIN: C.gameDomain,
         ALLOWED_ORIGIN: `https://${C.webDomain}`,
         DAILY_START_CAP: String(C.dailyStartCap),
+        SENDER_EMAIL: senderEmail,
       },
     });
+    apiFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["ses:SendEmail"],
+      resources: ["*"],
+      conditions: { StringEquals: { "ses:FromAddress": senderEmail } },
+    }));
     bucket.grantReadWrite(apiFn);
     apiFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ["ec2:DescribeInstances"], resources: ["*"],

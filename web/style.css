@@ -102,3 +102,30 @@ pre#cmd-out {
 footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 40px; }
 footer a { color: inherit; }
 .hidden { display: none !important; }
+
+/* v2: join box, player cards, inventory grid, map link */
+.center-row { justify-content: center; }
+.linkbtn {
+  display: inline-block; text-decoration: none; color: var(--ink);
+  border: 2px solid var(--line); border-radius: 10px; padding: 8px 16px; margin-top: 16px;
+}
+.linkbtn:hover { border-color: var(--grass); }
+details#join { margin-top: 24px; border-top: 2px solid var(--line); padding-top: 14px; }
+.player-card {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0;
+}
+.giverow { display: inline-flex; gap: 6px; align-items: center; }
+.inv { width: 100%; display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }
+.invitem {
+  display: inline-flex; align-items: center; gap: 4px; font-size: .8rem;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px;
+}
+.invitem img { width: 22px; height: 22px; image-rendering: pixelated; }
+.invitem img + i { display: none; }   /* icon present -> hide the text name */
+.invitem i { font-style: normal; }
+.invitem em { font-style: normal; color: var(--muted); }
+#req-badge { margin-left: 6px; }
+#tab-players h3 { margin: 18px 0 6px; }
+#tab-players h3:first-child { margin-top: 0; }
+#whoami { flex: 1; align-self: center; }

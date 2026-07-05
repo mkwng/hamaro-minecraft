@@ -50,6 +50,7 @@ export class WebStack extends Stack {
       sources: [s3deploy.Source.asset("../web")],
       destinationBucket: siteBucket,
       distribution: dist, // invalidates CloudFront on every deploy
+      prune: false, // the game instance publishes the terrain map under /map/ — never sweep it
     });
 
     new route53.ARecord(this, "SiteAlias", {
