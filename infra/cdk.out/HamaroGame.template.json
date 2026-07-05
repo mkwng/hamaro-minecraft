@@ -104,10 +104,27 @@
      ]
     },
     "SourceBucketNames": [
+     "cdk-hnb659fds-assets-414716064140-us-west-2",
      "cdk-hnb659fds-assets-414716064140-us-west-2"
     ],
     "SourceObjectKeys": [
-     "234cd2e7f97aed7e5ef2a32c24f76dceae26079f7389c38c7a5e9c07427b95ff.zip"
+     "1364c5c070688239eb0f3d8addf42da5af41cc843edc93304be14bf0ac278d76.zip",
+     "9492360922e7303a8f22f024a5e32ada5b5dafc22b772f3fc28364f1df987345.zip"
+    ],
+    "SourceMarkers": [
+     {},
+     {
+      "<<marker:0xbaba:0>>": {
+       "Ref": "DataBucketE3889A50"
+      },
+      "<<marker:0xbaba:1>>": {
+       "Ref": "GameZone47EDBFB5"
+      }
+     }
+    ],
+    "SourceMarkersConfig": [
+     {},
+     {}
     ],
     "DestinationBucketName": {
      "Ref": "DataBucketE3889A50"
@@ -475,6 +492,32 @@
        ],
        "Effect": "Allow",
        "Resource": "arn:aws:ssm:us-west-2:414716064140:parameter/hamaro/*"
+      },
+      {
+       "Action": [
+        "s3:DeleteObject",
+        "s3:GetObject",
+        "s3:PutObject"
+       ],
+       "Effect": "Allow",
+       "Resource": "arn:aws:s3:::hamaroweb-sitebucket397a1860-vvfauro7hkzh/map/*"
+      },
+      {
+       "Action": "s3:ListBucket",
+       "Condition": {
+        "StringLike": {
+         "s3:prefix": [
+          "map/*"
+         ]
+        }
+       },
+       "Effect": "Allow",
+       "Resource": "arn:aws:s3:::hamaroweb-sitebucket397a1860-vvfauro7hkzh"
+      },
+      {
+       "Action": "cloudfront:CreateInvalidation",
+       "Effect": "Allow",
+       "Resource": "arn:aws:cloudfront::414716064140:distribution/E1BY9KADZ8GIML"
       }
      ],
      "Version": "2012-10-17"
@@ -644,6 +687,96 @@
     "aws:cdk:path": "HamaroGame/Alerts/hello@mkwng.com/Resource"
    }
   },
+  "SesIdentityDkimDnsToken1A3E37E5A": {
+   "Type": "AWS::Route53::RecordSet",
+   "Properties": {
+    "HostedZoneId": {
+     "Ref": "GameZone47EDBFB5"
+    },
+    "Name": {
+     "Fn::GetAtt": [
+      "SesIdentity3ED17C37",
+      "DkimDNSTokenName1"
+     ]
+    },
+    "ResourceRecords": [
+     {
+      "Fn::GetAtt": [
+       "SesIdentity3ED17C37",
+       "DkimDNSTokenValue1"
+      ]
+     }
+    ],
+    "TTL": "1800",
+    "Type": "CNAME"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/SesIdentity/DkimDnsToken1"
+   }
+  },
+  "SesIdentityDkimDnsToken29D7CD6B8": {
+   "Type": "AWS::Route53::RecordSet",
+   "Properties": {
+    "HostedZoneId": {
+     "Ref": "GameZone47EDBFB5"
+    },
+    "Name": {
+     "Fn::GetAtt": [
+      "SesIdentity3ED17C37",
+      "DkimDNSTokenName2"
+     ]
+    },
+    "ResourceRecords": [
+     {
+      "Fn::GetAtt": [
+       "SesIdentity3ED17C37",
+       "DkimDNSTokenValue2"
+      ]
+     }
+    ],
+    "TTL": "1800",
+    "Type": "CNAME"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/SesIdentity/DkimDnsToken2"
+   }
+  },
+  "SesIdentityDkimDnsToken3C742C5B7": {
+   "Type": "AWS::Route53::RecordSet",
+   "Properties": {
+    "HostedZoneId": {
+     "Ref": "GameZone47EDBFB5"
+    },
+    "Name": {
+     "Fn::GetAtt": [
+      "SesIdentity3ED17C37",
+      "DkimDNSTokenName3"
+     ]
+    },
+    "ResourceRecords": [
+     {
+      "Fn::GetAtt": [
+       "SesIdentity3ED17C37",
+       "DkimDNSTokenValue3"
+      ]
+     }
+    ],
+    "TTL": "1800",
+    "Type": "CNAME"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/SesIdentity/DkimDnsToken3"
+   }
+  },
+  "SesIdentity3ED17C37": {
+   "Type": "AWS::SES::EmailIdentity",
+   "Properties": {
+    "EmailIdentity": "mc.rowan.wang"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/SesIdentity/Resource"
+   }
+  },
   "ApiLogs3D05D88B": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
@@ -694,6 +827,16 @@
    "Properties": {
     "PolicyDocument": {
      "Statement": [
+      {
+       "Action": "ses:SendEmail",
+       "Condition": {
+        "StringEquals": {
+         "ses:FromAddress": "server@mc.rowan.wang"
+        }
+       },
+       "Effect": "Allow",
+       "Resource": "*"
+      },
       {
        "Action": [
         "s3:Abort*",
@@ -799,7 +942,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-414716064140-us-west-2",
-     "S3Key": "fb4423fab63974c4d6cc142fd77e827f63d97d5dbc1eaf3aba60dbde28b0830e.zip"
+     "S3Key": "68d344619a2082f1ffdafe873d636433d51529c4873862c6d62565e8ae558d8d.zip"
     },
     "Environment": {
      "Variables": {
@@ -811,7 +954,8 @@
       },
       "GAME_DOMAIN": "mc.rowan.wang",
       "ALLOWED_ORIGIN": "https://hamaro.rowan.wang",
-      "DAILY_START_CAP": "20"
+      "DAILY_START_CAP": "20",
+      "SENDER_EMAIL": "server@mc.rowan.wang"
      }
     },
     "Handler": "api.handler",
@@ -836,7 +980,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "HamaroGame/ApiFn/Resource",
-    "aws:asset:path": "asset.fb4423fab63974c4d6cc142fd77e827f63d97d5dbc1eaf3aba60dbde28b0830e",
+    "aws:asset:path": "asset.68d344619a2082f1ffdafe873d636433d51529c4873862c6d62565e8ae558d8d",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -1191,7 +1335,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-414716064140-us-west-2",
-     "S3Key": "fb4423fab63974c4d6cc142fd77e827f63d97d5dbc1eaf3aba60dbde28b0830e.zip"
+     "S3Key": "68d344619a2082f1ffdafe873d636433d51529c4873862c6d62565e8ae558d8d.zip"
     },
     "Environment": {
      "Variables": {
@@ -1226,7 +1370,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "HamaroGame/ReaperFn/Resource",
-    "aws:asset:path": "asset.fb4423fab63974c4d6cc142fd77e827f63d97d5dbc1eaf3aba60dbde28b0830e",
+    "aws:asset:path": "asset.68d344619a2082f1ffdafe873d636433d51529c4873862c6d62565e8ae558d8d",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -1414,7 +1558,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/11S227bMAz9lr6rWpauH+Cm6Fqg3QKn6MNeAkZmHDa6QaISGIL/fZDtpN6eeM4hRYnUWcrl9x9ycQPneKua462mncwbBnUUcI7bHFxivL+TeZ12mtSzi4zNH2dRrPZ2xqoalQtNUUe0Qe5FvJP5IakjcklMaAwPELEUbHODXrvOoGU5ph6vgoAYkaOsSuiFBrNrQObV3r5Ch+EDQyRnxYZsq5GdfUpWcVGuYLW3c7zGYCiWQ70gMDLXTg+jDHHtNKluqLuiFxsZrMJ1cHvS2AtUS5k/nE5mODihDaoUiLufwSVf9H+FS5d5RzGMkaw6vKPxGnjWr2IGdSgrKBcGmWv0LhK70I0rvrBeRBtlfneeVMmMYJN2UQXyl7HnvBfatVHmV9deH3vFb8iB1BNpxlASc94LhYFpTwoYDVhoMci8+tLKgRntBXhqgfEM3Wkp86MzQPYXjHubsWdmX3kqagmF1sV2A3qxjG2AyyT/0a+6DUM7NB5B5ekNvCfbTm0n1gulXWrOwOogc6UhmKGggF7gCS1Hmes0uSKVH2+0kWVJtEfVKY2TOXapaYs5B2cXeDHoVhdzbuEclSZZneNK0+BXMfi4PHB4V4rsTI3RpTC64Yrn4hoCGJz+43din7gX1jUoP+O30/JeLuTi5jMS3YZkmQzKeox/ASD4mw/bAwAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/11T227bMAz9lr6rWpauH+Cm61qg3QKn6MNeAkZmXDa6QaIaGIL/fZDtpM6eeM4RRZH08VIuv/+Qiys4xmvVHK417WTeMKiDgGPc5uAS4+2NzOu006QeXWRs/jqLYrW3l6xG5UKzQRbVCHsRb2S+S+qAXBImNIY7iFgStrlBr11n0LIcj+7PgoAYkaOsSuiFBrNrQObV3j5Dh+ENQyRnxYZsq5GdfUhWcVHOYLW3c7zGYCiWS70gMDLXTo/Nl7h2mlQ35J3Rk40MVuE6uD1p7AWqpcxvTiczXJzQBlUKxN2v4JIv+qVwqjKvKIYxklXvr2i8Bp7Vq5hBvZcVlAeDzDV6F4ld6MZVn1gvoo0yvzpPqpyMYJN2UQXyp7HnvBcRo8w/DZB+atAy8VDzQuiFdm2U+dm154nO+AU5kHogzRjKwZz3QmFg2pMCRgMWWgwyr760cmFGewGeWmA8Qve5lPneGSD7G8blztgjs688FbWEQuvizQE9WcY2wGnc/+hX3oahHQqPoPL0At6TbaeyE+uF0i41R2D1LnOlIZghoYBe4CdajjLXabJOKrZotJFlSbRH1SmNk4N2qWmLgwf7F3hy8VYXB2/hGJUmWR3jStNgajGYvTQ49JUiO1NjdCmo6Teb8FxcQwCD0/f4k9gn7oV1DcqP+O1zeSsXcnH1EYmuQ7JMBmU9xn9XNC0KAAQAAA=="
    },
    "Metadata": {
     "aws:cdk:path": "HamaroGame/CDKMetadata/Default"

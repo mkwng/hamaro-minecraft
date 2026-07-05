@@ -1,181 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hamaro Minecraft</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='55' fill='%2378b943'/><rect y='55' width='100' height='45' fill='%237a5a3a'/></svg>">
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HAMAR0×MC — the family Minecraft server</title>
+  <meta name="description" content="Hazel · Marlowe · Rowan's Minecraft server. Press start — it wakes in two minutes and naps when nobody's playing.">
+  <meta name="theme-color" content="#0c0e0b">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230c0e0b'/><rect x='14' y='14' width='72' height='40' fill='%2378b943'/><rect x='14' y='54' width='72' height='32' fill='%237a5a3a'/></svg>">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+
+  <!-- social unfurls (iMessage, Slack, X, Discord) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="HAMAR0×MC">
+  <meta property="og:title" content="HAMAR0×MC — the family Minecraft server">
+  <meta property="og:description" content="Hazel · Marlowe · Rowan's world. Press start — it wakes in two minutes and naps when nobody's playing.">
+  <meta property="og:url" content="https://hamaro.rowan.wang/">
+  <meta property="og:image" content="https://hamaro.rowan.wang/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="HAMAR0×MC — the family Minecraft server">
+  <meta name="twitter:description" content="Press start. Wakes in two minutes. Naps to save money.">
+  <meta name="twitter:image" content="https://hamaro.rowan.wang/og.png">
 </head>
 <body>
-<main>
-  <header>
-    <h1><span class="grass"></span> Hamaro Minecraft</h1>
-    <p class="sub">Hazel · Marlowe · Rowan</p>
-  </header>
-
-  <!-- Big status card: what the kids see -->
-  <section id="card" class="card state-loading">
-    <div id="status-face">⏳</div>
-    <div id="status-line">Checking on the server…</div>
-
-    <button id="start-btn" class="bigbtn hidden">▶ Start the server</button>
-
-    <div id="progress" class="hidden">
-      <div class="bar"><div id="bar-fill"></div></div>
-      <div id="progress-note">Waking up the machine… this takes about 2 minutes</div>
-    </div>
-
-    <div id="online-info" class="hidden">
-      <div class="addr-row">
-        <code id="addr">mc.rowan.wang</code>
-        <button id="copy-btn" title="Copy server address">Copy</button>
-      </div>
-      <div id="players-line"></div>
-      <div class="hint">Open Minecraft → Multiplayer → Add Server → paste the address</div>
-    </div>
-
-    <div class="row center-row">
-      <a class="linkbtn" href="/map/index.html" target="_blank" rel="noopener">🗺️ World map</a>
-    </div>
-  </section>
-
-  <p class="note">The server takes a nap after 15 minutes with nobody playing —
-  that's normal! Just press Start and it wakes right up.</p>
-
-  <!-- Public: ask to join -->
-  <details id="join">
-    <summary>Want to play here? Ask to join</summary>
-    <p class="hint">Tell us your Minecraft username and an email. A grown-up will approve you
-       and you'll get an email when you're in.</p>
-    <div class="row">
-      <input id="join-username" placeholder="Minecraft username" maxlength="16">
-      <input id="join-email" type="email" placeholder="you@example.com">
-      <button id="join-btn">Ask to join</button>
-    </div>
-    <div id="join-msg" class="hint"></div>
-  </details>
-
-  <!-- Admin -->
-  <details id="admin">
-    <summary>Grown-ups</summary>
-
-    <div id="login-box">
-      <p class="hint">Admins sign in with an email link — no password to remember.</p>
-      <div class="row">
-        <input id="login-email" type="email" placeholder="your@email.com">
-        <button id="login-btn">Email me a sign-in link</button>
-      </div>
-      <div id="login-msg" class="hint"></div>
-      <details id="pw-fallback">
-        <summary class="hint">use the break-glass password instead</summary>
-        <div class="row">
-          <input id="password" type="password" placeholder="Admin password" autocomplete="current-password">
-          <button id="pw-login-btn">Log in</button>
-        </div>
-      </details>
-      <span id="login-err" class="err"></span>
-    </div>
-
-    <div id="admin-panel" class="hidden">
-      <nav id="tabs">
-        <button data-tab="players" class="tab active">Players</button>
-        <button data-tab="requests" class="tab">Requests<span id="req-badge" class="badge hidden"></span></button>
-        <button data-tab="worlds" class="tab">Worlds</button>
-        <button data-tab="settings" class="tab">Settings</button>
-        <button data-tab="backups" class="tab">Backups</button>
-        <button data-tab="admins" class="tab">Admins</button>
-        <button data-tab="console" class="tab">Console</button>
-      </nav>
-
-      <section id="tab-players" class="tabpane">
-        <h3>Online now</h3>
-        <div id="online-list" class="hint">(server asleep or nobody on)</div>
-
-        <h3>Warps (saved points)</h3>
-        <ul id="warp-list"></ul>
-        <div class="row">
-          <input id="warp-name" placeholder="warp name" style="max-width:130px">
-          <input id="warp-x" placeholder="x" inputmode="numeric" style="max-width:70px">
-          <input id="warp-y" placeholder="y" inputmode="numeric" style="max-width:70px">
-          <input id="warp-z" placeholder="z" inputmode="numeric" style="max-width:70px">
-          <button id="warp-add">Add by coords</button>
-        </div>
-        <p class="hint">Tip: easier to use "Save spot" next to an online player.</p>
-
-        <h3>Whitelist <span class="hint">(instant — no restart needed)</span></h3>
-        <ul id="whitelist"></ul>
-        <div class="row"><input id="wl-name" placeholder="Minecraft username"><button id="wl-add">Add</button></div>
-
-        <h3>Ops (admins in game)</h3>
-        <ul id="opslist"></ul>
-        <div class="row"><input id="op-name" placeholder="Minecraft username"><button id="op-add">Add</button></div>
-      </section>
-
-      <section id="tab-requests" class="tabpane hidden">
-        <p>People who asked to join. Approving whitelists them instantly and emails them the good news.</p>
-        <ul id="request-list"></ul>
-      </section>
-
-      <section id="tab-worlds" class="tabpane hidden">
-        <p>Each world is a self-contained profile (its own Minecraft version, settings, and mods).
-           Switching backs up the current world first.</p>
-        <ul id="world-list"></ul>
-        <div class="row">
-          <input id="new-world-name" placeholder="new-world-name (letters, numbers, dashes)">
-          <button id="new-world-btn">Create world</button>
-        </div>
-      </section>
-
-      <section id="tab-settings" class="tabpane hidden">
-        <p>Settings for profile <b id="settings-profile"></b> — any
-           <a href="https://docker-minecraft-server.readthedocs.io/" target="_blank" rel="noopener">itzg variable</a> works.
-           <code>VERSION</code> must stay pinned (never LATEST).</p>
-        <textarea id="settings-env" rows="16" spellcheck="false"></textarea>
-        <div class="row">
-          <button id="settings-save">Save</button>
-          <button id="settings-apply">Save + apply now (restarts server)</button>
-        </div>
-      </section>
-
-      <section id="tab-backups" class="tabpane hidden">
-        <div class="row"><button id="backup-now">Back up now</button></div>
-        <ul id="backup-list"></ul>
-        <div class="restore-box">
-          <p>Restore selected backup into profile:</p>
-          <div class="row">
-            <input id="restore-target" placeholder="profile name (existing or new)">
-            <button id="restore-btn" disabled>Restore</button>
-          </div>
-        </div>
-      </section>
-
-      <section id="tab-admins" class="tabpane hidden">
-        <p>Admins sign in with email links. Add the other dads here; remove an email to revoke access.</p>
-        <ul id="admin-list"></ul>
-        <div class="row"><input id="admin-email" type="email" placeholder="dad@example.com"><button id="admin-add">Add admin</button></div>
-      </section>
-
-      <section id="tab-console" class="tabpane hidden">
-        <p>Runs a server command (like typing in the server console):
-           <code>ban Name</code>, <code>kick Name</code>, <code>weather clear</code>, <code>time set day</code>…</p>
-        <div class="row"><input id="cmd" placeholder="command"><button id="cmd-run">Run</button></div>
-        <pre id="cmd-out"></pre>
-        <hr>
-        <div class="row">
-          <button id="map-render">Update world map now</button>
-          <button id="stop-btn" class="danger">Stop server now (saves + backs up first)</button>
-        </div>
-      </section>
-
-      <div id="op-status" class="hidden"></div>
-      <div class="row logout-row"><span id="whoami" class="hint"></span><button id="logout-btn">Log out</button></div>
-    </div>
-  </details>
-
-  <footer>runs on AWS · turns itself off to save money · built with ❤️ for H+M+R ·
-    <a href="https://github.com/mkwng/hamaro-minecraft" rel="noopener">how it works</a></footer>
-</main>
-<script src="app.js"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

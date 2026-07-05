@@ -1,0 +1,12 @@
+export AWS_DEFAULT_REGION=us-west-2
+HAMARO_BUCKET=<<marker:0xbaba:0>>
+HAMARO_ZONE_ID=<<marker:0xbaba:1>>
+HAMARO_DOMAIN=mc.rowan.wang
+HAMARO_ECR=414716064140.dkr.ecr.us-west-2.amazonaws.com
+MC_IMAGE_REPO=hamaro/minecraft-server
+MC_IMAGE_TAG=2026.7.0
+IDLE_MINUTES=15
+BOOT_GRACE_MINUTES=10
+SITE_BUCKET=hamaroweb-sitebucket397a1860-vvfauro7hkzh
+SITE_DISTRIBUTION_ID=E1BY9KADZ8GIML
+UNMINED_URL=https://unmined.net/download/unmined-cli-linux-arm64-dev/

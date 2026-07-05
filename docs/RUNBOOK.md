@@ -15,7 +15,11 @@ Written for future-Michael with zero context. The kids were 6 when this was buil
 
 | Task | How |
 |---|---|
-| Start/stop, switch world, edit settings, whitelist, backups | https://hamaro.rowan.wang (admin password) |
+| Start/stop, switch world, settings, whitelist, backups, console, map | https://hamaro.rowan.wang → grown-ups (email magic link) |
+| Add/remove an admin (the other dads) | Admin → Admins tab (allowlist lives at s3://…/config/admins.json) |
+| Admin email link not arriving | Check spam; SES sender is server@mc.rowan.wang. Break-glass: password login still works (hash in SSM /hamaro/admin-password-hash) |
+| Approve a kid's friend | Admin → Requests (they applied via "Ask to join"); approval whitelists + emails them |
+| Update the public world map | happens automatically at every auto-sleep; or Admin → Console → "Update world map now" |
 | Shell on the instance (no SSH keys exist) | `aws ssm start-session --target <instance-id> --region us-west-2` |
 | Watch server logs | shell in, then `docker logs -f hamaro-mc` |
 | Deploy infra/script/website changes | `cd infra && npx cdk deploy HamaroGame HamaroWeb` (script changes take effect on next instance boot) |
@@ -70,9 +74,25 @@ The website is plain files in `web/` — `aws s3 sync web/ s3://<site-bucket>/` 
 - Billing alerts → an email you actually read (currently hello@mkwng.com).
 - Gandi: auto-renew ON for rowan.wang; PAT tokens expire — the manual delegation steps are in GANDI-DNS.md.
 
+## Email (SES) notes
+
+- Sender identity: the mc.rowan.wang domain (DKIM records auto-managed in Route 53). Production
+  access granted July 2026, so magic links and approval emails deliver to anyone.
+- If SES sending ever breaks: password login is the break-glass (`node scripts/set-admin-password.mjs`
+  to rotate), and whitelisting still works from the Requests/Players tabs — only notifications stop.
+
+## Website build (the one deliberate toolchain dependency)
+
+The site is Vite + React + TypeScript in `web/`. **`web/dist/` is committed on every deploy** —
+if the toolchain won't build years from now, deploy the committed dist as-is
+(`cd infra && npx cdk deploy HamaroWeb`, or `aws s3 sync web/dist s3://<site-bucket>/`).
+The control API stays zero-dependency regardless. Rebuild: `cd web && npm install && npm run build`.
+Social images: `node assets/make-social.mjs` regenerates `public/og.png` from `assets/og.svg`.
+
 ## Why it's built this way (so you don't "modernize" it into fragility)
 
-- **Zero npm deps in Lambdas / no-build-step website**: toolchains rot; plain files don't.
+- **Zero npm deps in Lambdas**: toolchains rot; plain files don't. (The website traded this
+  guarantee for interactivity in v3 — its escape hatch is the committed dist/.)
 - **Pinned image tag mirrored to private ECR**: Docker Hub rate limits/outages can't break boot.
 - **`VERSION` always explicit**: an unattended reboot must never silently one-way-upgrade a world.
 - **No Cognito**: a password hash in SSM has no pricing tiers, no forced UI migrations.

@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-deploy-role-414716064140-us-west-2",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-cfn-exec-role-414716064140-us-west-2",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-west-2/b3c23755e5f1c0b9f4528afb52ae3a71f35bd7a0f4da1120074c5c6e55addaa6.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-west-2/d983e9f6c5880dc07b9e38831430eb7001c2e8e4e23ba5008edc301c10fdf14c.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -114,7 +114,7 @@
               "new ImportedVpc (/Users/michaelwang/Code/hamaro-minecraft/infra/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:35213)",
               "new ImportedVpc (/Users/michaelwang/Code/hamaro-minecraft/infra/node_modules/aws-cdk-lib/core/lib/prop-injectable.js:1:488)",
               "Vpc2.fromVpcAttributes (/Users/michaelwang/Code/hamaro-minecraft/infra/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:9085)",
-              "new GameStack (/Users/michaelwang/Code/hamaro-minecraft/infra/lib/game-stack.ts:83:25)",
+              "new GameStack (/Users/michaelwang/Code/hamaro-minecraft/infra/lib/game-stack.ts:105:25)",
               "Object.<anonymous> (/Users/michaelwang/Code/hamaro-minecraft/infra/bin/hamaro.ts:10:1)",
               "Module._compile (node:internal/modules/cjs/loader:1759:14)",
               "Module.m._compile (/Users/michaelwang/Code/hamaro-minecraft/infra/node_modules/ts-node/src/index.ts:1618:23)",
@@ -198,6 +198,30 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "AlertshellomkwngcomCB6F7028"
+          }
+        ],
+        "/HamaroGame/SesIdentity/DkimDnsToken1": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SesIdentityDkimDnsToken1A3E37E5A"
+          }
+        ],
+        "/HamaroGame/SesIdentity/DkimDnsToken2": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SesIdentityDkimDnsToken29D7CD6B8"
+          }
+        ],
+        "/HamaroGame/SesIdentity/DkimDnsToken3": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SesIdentityDkimDnsToken3C742C5B7"
+          }
+        ],
+        "/HamaroGame/SesIdentity/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SesIdentity3ED17C37"
           }
         ],
         "/HamaroGame/ApiLogs/Resource": [
@@ -412,7 +436,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-deploy-role-414716064140-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-cfn-exec-role-414716064140-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-east-1/f54469776f8f2a4addf04d8240ca855140685ecd30943c4d851c165ed94e9ee3.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-east-1/56aa8398878dbeb6bc12265b7b4556e3c6b28dd268df37ad5c8eb96b1ada4b6d.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [

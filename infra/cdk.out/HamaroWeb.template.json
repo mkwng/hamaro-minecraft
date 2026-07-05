@@ -349,13 +349,13 @@
      "cdk-hnb659fds-assets-414716064140-us-east-1"
     ],
     "SourceObjectKeys": [
-     "5017f5247b84b1ea65c392c71b5e181f2cdc68d3e0c1f618eda303fb48dcc9c9.zip"
+     "f95fd6c19e3a2c3542142fbe0b5a71d0b67568068133ff8d4fb18a0d216dff82.zip"
     ],
     "DestinationBucketName": {
      "Ref": "SiteBucket397A1860"
     },
     "WaitForDistributionInvalidation": true,
-    "Prune": true,
+    "Prune": false,
     "DistributionId": {
      "Ref": "SiteDistE3DA6676"
     },

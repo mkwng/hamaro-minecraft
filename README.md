@@ -24,10 +24,11 @@ control website. Everything is defined in AWS CDK under `infra/`.
 
 | Dir | What |
 |---|---|
-| `infra/` | AWS CDK (TypeScript). `GameStack` (us-west-2): EC2, EBS, Route 53, API, reaper, budgets. `WebStack` (us-east-1): website hosting. |
+| `infra/` | AWS CDK (TypeScript). `GameStack` (us-west-2): EC2, EBS, Route 53, API, SES, reaper, budgets. `WebStack` (us-east-1): website hosting. |
 | `control-api/` | Lambda handlers. Plain JavaScript, **zero npm dependencies** (survives Node runtime bumps with a one-line change). |
-| `web/` | The control website. Plain HTML/CSS/JS, **no build step** (loads forever). |
-| `server/` | Everything that runs ON the instance: boot, watchdog, backup, restore, compose file. Synced to the instance from S3 on every boot — edit here, `cdk deploy`, reboot. |
+| `web/` | The control website: Vite + React + TS. **`dist/` is committed** so the site stays deployable even if the toolchain rots. |
+| `server/` | Everything that runs ON the instance: boot, watchdog (idle-sleep + live map markers), backup, restore, map render. Synced from S3 on every boot — edit here, `cdk deploy`, reboot. |
+| `scripts/` | One-time/maintenance helpers: admin password, Gandi DNS delegation, item-icon mirror, seeding. |
 | `docs/` | **Start with `docs/RUNBOOK.md`.** Restore drills, DNS setup, yearly maintenance. |
 
 ## The three rules of not losing everything (read `docs/RUNBOOK.md`)

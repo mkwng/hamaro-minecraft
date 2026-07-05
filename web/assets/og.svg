@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0c0e0b"/>
+
+  <!-- corner brackets -->
+  <g fill="#48d597">
+    <rect x="36" y="36" width="34" height="4"/><rect x="36" y="36" width="4" height="34"/>
+    <rect x="1130" y="36" width="34" height="4"/><rect x="1160" y="36" width="4" height="34"/>
+    <rect x="36" y="590" width="34" height="4"/><rect x="36" y="560" width="4" height="34"/>
+    <rect x="1130" y="590" width="34" height="4"/><rect x="1160" y="560" width="4" height="34"/>
+  </g>
+
+  <!-- pixel grass block (9x9, 16px cells) centered at x=600 -->
+  <g transform="translate(528,72)">
+    <rect x="0" y="0" width="144" height="64" fill="#78b943"/>
+    <rect x="0" y="0" width="16" height="16" fill="#8ecf57"/>
+    <rect x="48" y="16" width="16" height="16" fill="#8ecf57"/>
+    <rect x="112" y="0" width="16" height="16" fill="#8ecf57"/>
+    <rect x="80" y="32" width="16" height="16" fill="#5a9430"/>
+    <rect x="16" y="32" width="16" height="16" fill="#5a9430"/>
+    <rect x="0" y="64" width="144" height="80" fill="#7a5a3a"/>
+    <rect x="16" y="80" width="16" height="16" fill="#8a6a48"/>
+    <rect x="96" y="96" width="16" height="16" fill="#684a2e"/>
+    <rect x="48" y="112" width="16" height="16" fill="#8a6a48"/>
+    <rect x="128" y="72" width="16" height="16" fill="#684a2e"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="600" y="358" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="96" font-weight="bold" letter-spacing="6" fill="#d7e4cb">HAMAR<tspan fill="#48d597">0</tspan><tspan fill="#48d597">×</tspan>MC</text>
+
+  <!-- subline -->
+  <text x="600" y="412" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="26" letter-spacing="8" fill="#7d8a72">HAZEL · MARLOWE · ROWAN — FAMILY SERVER</text>
+
+  <!-- address box -->
+  <rect x="400" y="452" width="400" height="72" fill="#12150f" stroke="#48d597" stroke-width="2" stroke-dasharray="10 8"/>
+  <text x="600" y="499" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="34" fill="#48d597">mc.rowan.wang</text>
+
+  <!-- dither row -->
+  <g fill="#2a3324">
+    <rect x="420" y="560" width="8" height="8"/><rect x="436" y="560" width="8" height="8"/>
+    <rect x="456" y="560" width="8" height="8"/><rect x="480" y="560" width="8" height="8"/>
+    <rect x="508" y="560" width="8" height="8"/><rect x="540" y="560" width="8" height="8"/>
+    <rect x="576" y="560" width="8" height="8" fill="#48d597"/><rect x="616" y="560" width="8" height="8"/>
+    <rect x="652" y="560" width="8" height="8"/><rect x="684" y="560" width="8" height="8"/>
+    <rect x="712" y="560" width="8" height="8"/><rect x="736" y="560" width="8" height="8"/>
+    <rect x="756" y="560" width="8" height="8"/><rect x="772" y="560" width="8" height="8"/>
+  </g>
+</svg>

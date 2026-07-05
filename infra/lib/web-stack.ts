@@ -47,7 +47,7 @@ export class WebStack extends Stack {
     });
 
     new s3deploy.BucketDeployment(this, "SiteDeploy", {
-      sources: [s3deploy.Source.asset("../web")],
+      sources: [s3deploy.Source.asset("../web/dist")],
       destinationBucket: siteBucket,
       distribution: dist, // invalidates CloudFront on every deploy
       prune: false, // the game instance publishes the terrain map under /map/ — never sweep it

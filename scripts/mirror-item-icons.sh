@@ -17,4 +17,10 @@ COUNT=$(ls "$WORK/assets/data/${VERSION}/items" | wc -l | xargs)
 echo "syncing ${COUNT} icons to s3://${SITE_BUCKET}/items/ ..."
 aws s3 sync "$WORK/assets/data/${VERSION}/items/" "s3://${SITE_BUCKET}/items/" \
   --cache-control "public, max-age=2592000" --size-only --no-progress | tail -1
-echo "done"
+
+# Manifest of item ids for the console autocomplete.
+ls "$WORK/assets/data/${VERSION}/items" | sed 's/\.png$//' | \
+  python3 -c "import json,sys; print(json.dumps(sys.stdin.read().split()))" | \
+  aws s3 cp - "s3://${SITE_BUCKET}/items/index.json" \
+  --cache-control "public, max-age=86400" --content-type application/json
+echo "done (icons + index.json)"
