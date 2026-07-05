@@ -1,0 +1,1491 @@
+{
+ "Description": "Hamaro Minecraft: game server, DNS, control API, safety nets",
+ "Resources": {
+  "GameZone47EDBFB5": {
+   "Type": "AWS::Route53::HostedZone",
+   "Properties": {
+    "Name": "mc.rowan.wang."
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/GameZone/Resource"
+   }
+  },
+  "DataBucketE3889A50": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "BucketName": "hamaro-minecraft-414716064140",
+    "LifecycleConfiguration": {
+     "Rules": [
+      {
+       "Id": "backups-tiering",
+       "Prefix": "backups/",
+       "Status": "Enabled",
+       "Transitions": [
+        {
+         "StorageClass": "STANDARD_IA",
+         "TransitionInDays": 30
+        },
+        {
+         "StorageClass": "DEEP_ARCHIVE",
+         "TransitionInDays": 120
+        }
+       ]
+      },
+      {
+       "Id": "tidy-noncurrent",
+       "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 90
+       },
+       "Status": "Enabled"
+      },
+      {
+       "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+       },
+       "Id": "abort-mpu",
+       "Status": "Enabled"
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "Tags": [
+     {
+      "Key": "aws-cdk:cr-owned:server/:e55debef",
+      "Value": "true"
+     }
+    ],
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/DataBucket/Resource"
+   }
+  },
+  "ServerScriptsAwsCliLayer2B83B5A1": {
+   "Type": "AWS::Lambda::LayerVersion",
+   "Properties": {
+    "Content": {
+     "S3Bucket": "cdk-hnb659fds-assets-414716064140-us-west-2",
+     "S3Key": "c49d356cac773d491c5f7ac148995a1181498a8e289429f8612a7f7e3814f535.zip"
+    },
+    "Description": "/opt/awscli/aws"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ServerScripts/AwsCliLayer/Resource",
+    "aws:asset:path": "asset.c49d356cac773d491c5f7ac148995a1181498a8e289429f8612a7f7e3814f535.zip",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Content"
+   }
+  },
+  "ServerScriptsCustomResource49846A1C": {
+   "Type": "Custom::CDKBucketDeployment",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536",
+      "Arn"
+     ]
+    },
+    "SourceBucketNames": [
+     "cdk-hnb659fds-assets-414716064140-us-west-2"
+    ],
+    "SourceObjectKeys": [
+     "234cd2e7f97aed7e5ef2a32c24f76dceae26079f7389c38c7a5e9c07427b95ff.zip"
+    ],
+    "DestinationBucketName": {
+     "Ref": "DataBucketE3889A50"
+    },
+    "DestinationBucketKeyPrefix": "server/",
+    "WaitForDistributionInvalidation": true,
+    "Prune": true,
+    "OutputObjectKeys": true
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ServerScripts/CustomResource/Default"
+   }
+  },
+  "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/Resource"
+   }
+  },
+  "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":s3:::cdk-hnb659fds-assets-414716064140-us-west-2"
+          ]
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":s3:::cdk-hnb659fds-assets-414716064140-us-west-2/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:Abort*",
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "DataBucketE3889A50",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "DataBucketE3889A50",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF",
+    "Roles": [
+     {
+      "Ref": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-414716064140-us-west-2",
+     "S3Key": "3423a042b818e31c1e34a19d6689ab2e5f9b70fcbe9e71df66f241b20a200bd9.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "AWS_CA_BUNDLE": "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+     }
+    },
+    "Handler": "index.handler",
+    "Layers": [
+     {
+      "Ref": "ServerScriptsAwsCliLayer2B83B5A1"
+     }
+    ],
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.11",
+    "Timeout": 900
+   },
+   "DependsOn": [
+    "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF",
+    "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Resource",
+    "aws:asset:path": "asset.3423a042b818e31c1e34a19d6689ab2e5f9b70fcbe9e71df66f241b20a200bd9",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "WorldVolumeCAA0A7A5": {
+   "Type": "AWS::EC2::Volume",
+   "Properties": {
+    "AvailabilityZone": "us-west-2a",
+    "Encrypted": true,
+    "MultiAttachEnabled": false,
+    "Size": 30,
+    "Tags": [
+     {
+      "Key": "HamaroBackup",
+      "Value": "true"
+     },
+     {
+      "Key": "Name",
+      "Value": "hamaro-minecraft-worlds"
+     }
+    ],
+    "VolumeType": "gp3"
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/WorldVolume/Resource"
+   }
+  },
+  "McRepo81C98655": {
+   "Type": "AWS::ECR::Repository",
+   "Properties": {
+    "LifecyclePolicy": {
+     "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"keep last 5 mirrored tags\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":5},\"action\":{\"type\":\"expire\"}}]}"
+    },
+    "RepositoryName": "hamaro/minecraft-server"
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/McRepo/Resource"
+   }
+  },
+  "McSgC28BCE66": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Hamaro Minecraft — game port only, no SSH (SSM instead)",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Minecraft Java",
+      "FromPort": 25565,
+      "IpProtocol": "tcp",
+      "ToPort": 25565
+     }
+    ],
+    "VpcId": "vpc-c06cfca8"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/McSg/Resource"
+   }
+  },
+  "InstanceRole3CCE2F1D": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ec2.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonSSMManagedInstanceCore"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/InstanceRole/Resource"
+   }
+  },
+  "InstanceRoleDefaultPolicy1531605C": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:Abort*",
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "DataBucketE3889A50",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "DataBucketE3889A50",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:CompleteLayerUpload",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "McRepo81C98655",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": "ecr:GetAuthorizationToken",
+       "Effect": "Allow",
+       "Resource": "*"
+      },
+      {
+       "Action": "route53:ChangeResourceRecordSets",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          "arn:",
+          {
+           "Ref": "AWS::Partition"
+          },
+          ":route53:::hostedzone/",
+          {
+           "Ref": "GameZone47EDBFB5"
+          }
+         ]
+        ]
+       }
+      },
+      {
+       "Action": [
+        "ssm:GetParameter",
+        "ssm:PutParameter"
+       ],
+       "Effect": "Allow",
+       "Resource": "arn:aws:ssm:us-west-2:414716064140:parameter/hamaro/*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "InstanceRoleDefaultPolicy1531605C",
+    "Roles": [
+     {
+      "Ref": "InstanceRole3CCE2F1D"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/InstanceRole/DefaultPolicy/Resource"
+   }
+  },
+  "McInstanceInstanceProfile5AF0F58A": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "Roles": [
+     {
+      "Ref": "InstanceRole3CCE2F1D"
+     }
+    ]
+   },
+   "DependsOn": [
+    "ServerScriptsAwsCliLayer2B83B5A1",
+    "ServerScriptsCustomResource49846A1C"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/McInstance/InstanceProfile"
+   }
+  },
+  "McInstance7555C128": {
+   "Type": "AWS::EC2::Instance",
+   "Properties": {
+    "AvailabilityZone": "us-west-2a",
+    "BlockDeviceMappings": [
+     {
+      "DeviceName": "/dev/xvda",
+      "Ebs": {
+       "Encrypted": true,
+       "VolumeSize": 16,
+       "VolumeType": "gp3"
+      }
+     }
+    ],
+    "DisableApiTermination": true,
+    "IamInstanceProfile": {
+     "Ref": "McInstanceInstanceProfile5AF0F58A"
+    },
+    "ImageId": {
+     "Ref": "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61arm64C96584B6F00A464EAD1953AFF4B05118Parameter"
+    },
+    "InstanceInitiatedShutdownBehavior": "stop",
+    "InstanceType": "t4g.large",
+    "LaunchTemplate": {
+     "LaunchTemplateName": "McInstanceLaunchTemplate",
+     "Version": {
+      "Fn::GetAtt": [
+       "McInstanceLaunchTemplate7B1BD571",
+       "LatestVersionNumber"
+      ]
+     }
+    },
+    "NetworkInterfaces": [
+     {
+      "AssociatePublicIpAddress": true,
+      "DeviceIndex": "0",
+      "GroupSet": [
+       {
+        "Fn::GetAtt": [
+         "McSgC28BCE66",
+         "GroupId"
+        ]
+       }
+      ],
+      "SubnetId": "subnet-c36cfcab"
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "hamaro-minecraft"
+     }
+    ],
+    "UserData": {
+     "Fn::Base64": {
+      "Fn::Join": [
+       "",
+       [
+        "#!/bin/bash\nset -euxo pipefail\ndnf install -y docker\nsystemctl enable --now docker\nif ! blkid --label hamaro-data >/dev/null 2>&1; then\n        for d in /dev/sdf /dev/xvdf /dev/nvme1n1; do\n          if [ -b \"$d\" ] && ! blkid \"$d\" >/dev/null 2>&1; then mkfs.xfs -L hamaro-data \"$d\"; break; fi\n        done\n      fi\nmkdir -p /srv/minecraft /opt/hamaro /etc/hamaro\ngrep -q hamaro-data /etc/fstab || echo 'LABEL=hamaro-data /srv/minecraft xfs defaults,nofail 0 2' >> /etc/fstab\nmount -a\ncat > /etc/hamaro/env <<EOF\nexport AWS_DEFAULT_REGION=us-west-2\nHAMARO_BUCKET=",
+        {
+         "Ref": "DataBucketE3889A50"
+        },
+        "\nHAMARO_ZONE_ID=",
+        {
+         "Ref": "GameZone47EDBFB5"
+        },
+        "\nHAMARO_DOMAIN=mc.rowan.wang\nHAMARO_ECR=414716064140.dkr.ecr.us-west-2.amazonaws.com\nMC_IMAGE_REPO=hamaro/minecraft-server\nMC_IMAGE_TAG=2026.7.0\nIDLE_MINUTES=15\nBOOT_GRACE_MINUTES=10\nEOF\ncat > /usr/local/bin/hamaro-sync <<'EOF'\n#!/bin/bash\nset -e\nsource /etc/hamaro/env\naws s3 sync \"s3://${HAMARO_BUCKET}/server/\" /opt/hamaro/ --delete\nchmod +x /opt/hamaro/*.sh\ncp /opt/hamaro/systemd/* /etc/systemd/system/\nsystemctl daemon-reload\nEOF\nchmod +x /usr/local/bin/hamaro-sync\n/usr/local/bin/hamaro-sync\nsystemctl enable hamaro-boot.service hamaro-watchdog.timer hamaro-backup.timer\nsystemctl start hamaro-boot.service hamaro-watchdog.timer hamaro-backup.timer"
+       ]
+      ]
+     }
+    }
+   },
+   "DependsOn": [
+    "InstanceRoleDefaultPolicy1531605C",
+    "InstanceRole3CCE2F1D",
+    "ServerScriptsAwsCliLayer2B83B5A1",
+    "ServerScriptsCustomResource49846A1C"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/McInstance/Resource"
+   }
+  },
+  "McInstanceLaunchTemplate7B1BD571": {
+   "Type": "AWS::EC2::LaunchTemplate",
+   "Properties": {
+    "LaunchTemplateData": {
+     "MetadataOptions": {
+      "HttpTokens": "required"
+     }
+    },
+    "LaunchTemplateName": "McInstanceLaunchTemplate"
+   },
+   "DependsOn": [
+    "ServerScriptsAwsCliLayer2B83B5A1",
+    "ServerScriptsCustomResource49846A1C"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/McInstance/LaunchTemplate"
+   }
+  },
+  "WorldVolumeAttachment": {
+   "Type": "AWS::EC2::VolumeAttachment",
+   "Properties": {
+    "Device": "/dev/sdf",
+    "InstanceId": {
+     "Ref": "McInstance7555C128"
+    },
+    "VolumeId": {
+     "Ref": "WorldVolumeCAA0A7A5"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/WorldVolumeAttachment"
+   }
+  },
+  "Alerts91F83244": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "Hamaro Minecraft alerts"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/Alerts/Resource"
+   }
+  },
+  "AlertshellomkwngcomCB6F7028": {
+   "Type": "AWS::SNS::Subscription",
+   "Properties": {
+    "Endpoint": "hello@mkwng.com",
+    "Protocol": "email",
+    "TopicArn": {
+     "Ref": "Alerts91F83244"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/Alerts/hello@mkwng.com/Resource"
+   }
+  },
+  "ApiLogs3D05D88B": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "RetentionInDays": 30
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ApiLogs/Resource"
+   }
+  },
+  "ApiFnServiceRoleD18AAE0E": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ApiFn/ServiceRole/Resource"
+   }
+  },
+  "ApiFnServiceRoleDefaultPolicy56A1E6E5": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:Abort*",
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "DataBucketE3889A50",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "DataBucketE3889A50",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "ec2:DescribeInstances",
+        "ssm:GetCommandInvocation"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      },
+      {
+       "Action": "ec2:StartInstances",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          "arn:aws:ec2:us-west-2:414716064140:instance/",
+          {
+           "Ref": "McInstance7555C128"
+          }
+         ]
+        ]
+       }
+      },
+      {
+       "Action": [
+        "ssm:GetParameter",
+        "ssm:PutParameter"
+       ],
+       "Effect": "Allow",
+       "Resource": "arn:aws:ssm:us-west-2:414716064140:parameter/hamaro/*"
+      },
+      {
+       "Action": "ssm:SendCommand",
+       "Effect": "Allow",
+       "Resource": [
+        "arn:aws:ssm:us-west-2::document/AWS-RunShellScript",
+        {
+         "Fn::Join": [
+          "",
+          [
+           "arn:aws:ec2:us-west-2:414716064140:instance/",
+           {
+            "Ref": "McInstance7555C128"
+           }
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ApiFnServiceRoleDefaultPolicy56A1E6E5",
+    "Roles": [
+     {
+      "Ref": "ApiFnServiceRoleD18AAE0E"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ApiFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ApiFnE0725F78": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-414716064140-us-west-2",
+     "S3Key": "323347951e7d1d8db6ae594c955c9cc8a0b43fe1c084ee136078bfff3d92ae31.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "INSTANCE_ID": {
+       "Ref": "McInstance7555C128"
+      },
+      "BUCKET": {
+       "Ref": "DataBucketE3889A50"
+      },
+      "GAME_DOMAIN": "mc.rowan.wang",
+      "ALLOWED_ORIGIN": "https://hamaro.rowan.wang",
+      "DAILY_START_CAP": "20"
+     }
+    },
+    "Handler": "api.handler",
+    "LoggingConfig": {
+     "LogGroup": {
+      "Ref": "ApiLogs3D05D88B"
+     }
+    },
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "ApiFnServiceRoleD18AAE0E",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Timeout": 29
+   },
+   "DependsOn": [
+    "ApiFnServiceRoleDefaultPolicy56A1E6E5",
+    "ApiFnServiceRoleD18AAE0E"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ApiFn/Resource",
+    "aws:asset:path": "asset.323347951e7d1d8db6ae594c955c9cc8a0b43fe1c084ee136078bfff3d92ae31",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ApiCert744F7693": {
+   "Type": "AWS::CertificateManager::Certificate",
+   "Properties": {
+    "DomainName": "api.mc.rowan.wang",
+    "DomainValidationOptions": [
+     {
+      "DomainName": "api.mc.rowan.wang",
+      "HostedZoneId": {
+       "Ref": "GameZone47EDBFB5"
+      }
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "HamaroGame/ApiCert"
+     }
+    ],
+    "ValidationMethod": "DNS"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ApiCert/Resource"
+   }
+  },
+  "ApiDomain2D27DFFC": {
+   "Type": "AWS::ApiGatewayV2::DomainName",
+   "Properties": {
+    "DomainName": "api.mc.rowan.wang",
+    "DomainNameConfigurations": [
+     {
+      "CertificateArn": {
+       "Ref": "ApiCert744F7693"
+      },
+      "EndpointType": "REGIONAL"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ApiDomain/Resource"
+   }
+  },
+  "ControlApiAC3A38A3": {
+   "Type": "AWS::ApiGatewayV2::Api",
+   "Properties": {
+    "CorsConfiguration": {
+     "AllowHeaders": [
+      "authorization",
+      "content-type"
+     ],
+     "AllowMethods": [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE"
+     ],
+     "AllowOrigins": [
+      "https://hamaro.rowan.wang"
+     ],
+     "MaxAge": 3600
+    },
+    "Name": "ControlApi",
+    "ProtocolType": "HTTP"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ControlApi/Resource"
+   }
+  },
+  "ControlApiDefaultRouteApiIntegrationFA780A48": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlApiAC3A38A3"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ApiFnE0725F78",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ControlApi/DefaultRoute/ApiIntegration/Resource"
+   }
+  },
+  "ControlApiDefaultRouteApiIntegrationPermissionD2EFB55B": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ApiFnE0725F78",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-west-2:414716064140:",
+       {
+        "Ref": "ControlApiAC3A38A3"
+       },
+       "/*/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ControlApi/DefaultRoute/ApiIntegration-Permission"
+   }
+  },
+  "ControlApiDefaultRoute63C48128": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlApiAC3A38A3"
+    },
+    "AuthorizationType": "NONE",
+    "RouteKey": "$default",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlApiDefaultRouteApiIntegrationFA780A48"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ControlApi/DefaultRoute/Resource"
+   }
+  },
+  "ControlApiDefaultStageAAA525D5": {
+   "Type": "AWS::ApiGatewayV2::Stage",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlApiAC3A38A3"
+    },
+    "AutoDeploy": true,
+    "DefaultRouteSettings": {
+     "ThrottlingBurstLimit": 20,
+     "ThrottlingRateLimit": 10
+    },
+    "StageName": "$default"
+   },
+   "DependsOn": [
+    "ApiDomain2D27DFFC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ControlApi/DefaultStage/Resource"
+   }
+  },
+  "ControlApiDefaultStageHamaroGameApiDomainundefined97BDFAF5": {
+   "Type": "AWS::ApiGatewayV2::ApiMapping",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlApiAC3A38A3"
+    },
+    "DomainName": {
+     "Ref": "ApiDomain2D27DFFC"
+    },
+    "Stage": "$default"
+   },
+   "DependsOn": [
+    "ApiDomain2D27DFFC",
+    "ControlApiDefaultStageAAA525D5"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ControlApi/DefaultStage/HamaroGame--ApiDomainundefined/Resource"
+   }
+  },
+  "ApiAliasF1DE69EE": {
+   "Type": "AWS::Route53::RecordSet",
+   "Properties": {
+    "AliasTarget": {
+     "DNSName": {
+      "Fn::GetAtt": [
+       "ApiDomain2D27DFFC",
+       "RegionalDomainName"
+      ]
+     },
+     "HostedZoneId": {
+      "Fn::GetAtt": [
+       "ApiDomain2D27DFFC",
+       "RegionalHostedZoneId"
+      ]
+     }
+    },
+    "HostedZoneId": {
+     "Ref": "GameZone47EDBFB5"
+    },
+    "Name": "api.mc.rowan.wang.",
+    "Type": "A"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ApiAlias/Resource"
+   }
+  },
+  "AuthFailFilter99B2630C": {
+   "Type": "AWS::Logs::MetricFilter",
+   "Properties": {
+    "FilterPattern": "AUTH_FAIL",
+    "LogGroupName": {
+     "Ref": "ApiLogs3D05D88B"
+    },
+    "MetricTransformations": [
+     {
+      "MetricName": "AuthFailures",
+      "MetricNamespace": "Hamaro",
+      "MetricValue": "1"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/AuthFailFilter/Resource"
+   }
+  },
+  "AuthFailAlarmC930F9F1": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "Alerts91F83244"
+     }
+    ],
+    "AlarmDescription": "Someone is guessing the Hamaro admin password",
+    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+    "EvaluationPeriods": 1,
+    "MetricName": "AuthFailures",
+    "Namespace": "Hamaro",
+    "Period": 900,
+    "Statistic": "Sum",
+    "Threshold": 10,
+    "TreatMissingData": "notBreaching"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/AuthFailAlarm/Resource"
+   }
+  },
+  "ReaperLogs73CECD37": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "RetentionInDays": 30
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ReaperLogs/Resource"
+   }
+  },
+  "ReaperFnServiceRoleF7886022": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ReaperFn/ServiceRole/Resource"
+   }
+  },
+  "ReaperFnServiceRoleDefaultPolicy33FD6A85": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "ec2:DescribeInstances",
+       "Effect": "Allow",
+       "Resource": "*"
+      },
+      {
+       "Action": "ec2:StopInstances",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          "arn:aws:ec2:us-west-2:414716064140:instance/",
+          {
+           "Ref": "McInstance7555C128"
+          }
+         ]
+        ]
+       }
+      },
+      {
+       "Action": "ssm:GetParameter",
+       "Effect": "Allow",
+       "Resource": "arn:aws:ssm:us-west-2:414716064140:parameter/hamaro/*"
+      },
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "Alerts91F83244"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ReaperFnServiceRoleDefaultPolicy33FD6A85",
+    "Roles": [
+     {
+      "Ref": "ReaperFnServiceRoleF7886022"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ReaperFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ReaperFn29E76FC4": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-414716064140-us-west-2",
+     "S3Key": "323347951e7d1d8db6ae594c955c9cc8a0b43fe1c084ee136078bfff3d92ae31.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "INSTANCE_ID": {
+       "Ref": "McInstance7555C128"
+      },
+      "SNS_TOPIC_ARN": {
+       "Ref": "Alerts91F83244"
+      },
+      "UPTIME_CAP_HOURS": "12",
+      "HEARTBEAT_STALE_MINUTES": "30"
+     }
+    },
+    "Handler": "reaper.handler",
+    "LoggingConfig": {
+     "LogGroup": {
+      "Ref": "ReaperLogs73CECD37"
+     }
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "ReaperFnServiceRoleF7886022",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Timeout": 60
+   },
+   "DependsOn": [
+    "ReaperFnServiceRoleDefaultPolicy33FD6A85",
+    "ReaperFnServiceRoleF7886022"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ReaperFn/Resource",
+    "aws:asset:path": "asset.323347951e7d1d8db6ae594c955c9cc8a0b43fe1c084ee136078bfff3d92ae31",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ReaperSchedule02258773": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "ScheduleExpression": "rate(15 minutes)",
+    "State": "ENABLED",
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "ReaperFn29E76FC4",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ReaperSchedule/Resource"
+   }
+  },
+  "ReaperScheduleAllowEventRuleHamaroGameReaperFn2FAD64EEC53ECBE2": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ReaperFn29E76FC4",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "ReaperSchedule02258773",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/ReaperSchedule/AllowEventRuleHamaroGameReaperFn2FAD64EE"
+   }
+  },
+  "DlmRoleCE7C5775": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "dlm.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/DlmRole/Resource"
+   }
+  },
+  "WeeklySnapshots": {
+   "Type": "AWS::DLM::LifecyclePolicy",
+   "Properties": {
+    "Description": "Hamaro: weekly world-volume snapshots, keep 4",
+    "ExecutionRoleArn": {
+     "Fn::GetAtt": [
+      "DlmRoleCE7C5775",
+      "Arn"
+     ]
+    },
+    "PolicyDetails": {
+     "ResourceTypes": [
+      "VOLUME"
+     ],
+     "Schedules": [
+      {
+       "CopyTags": true,
+       "CreateRule": {
+        "CronExpression": "cron(0 10 ? * SUN *)"
+       },
+       "Name": "weekly",
+       "RetainRule": {
+        "Count": 4
+       }
+      }
+     ],
+     "TargetTags": [
+      {
+       "Key": "HamaroBackup",
+       "Value": "true"
+      }
+     ]
+    },
+    "State": "ENABLED"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/WeeklySnapshots"
+   }
+  },
+  "BudgetWarn": {
+   "Type": "AWS::Budgets::Budget",
+   "Properties": {
+    "Budget": {
+     "BudgetLimit": {
+      "Amount": 20,
+      "Unit": "USD"
+     },
+     "BudgetName": "hamaro-20usd",
+     "BudgetType": "COST",
+     "TimeUnit": "MONTHLY"
+    },
+    "NotificationsWithSubscribers": [
+     {
+      "Notification": {
+       "ComparisonOperator": "GREATER_THAN",
+       "NotificationType": "ACTUAL",
+       "Threshold": 100
+      },
+      "Subscribers": [
+       {
+        "Address": "hello@mkwng.com",
+        "SubscriptionType": "EMAIL"
+       }
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/BudgetWarn"
+   }
+  },
+  "BudgetAlarm": {
+   "Type": "AWS::Budgets::Budget",
+   "Properties": {
+    "Budget": {
+     "BudgetLimit": {
+      "Amount": 35,
+      "Unit": "USD"
+     },
+     "BudgetName": "hamaro-35usd",
+     "BudgetType": "COST",
+     "TimeUnit": "MONTHLY"
+    },
+    "NotificationsWithSubscribers": [
+     {
+      "Notification": {
+       "ComparisonOperator": "GREATER_THAN",
+       "NotificationType": "ACTUAL",
+       "Threshold": 100
+      },
+      "Subscribers": [
+       {
+        "Address": "hello@mkwng.com",
+        "SubscriptionType": "EMAIL"
+       }
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/BudgetAlarm"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/11S227bMAz9lr6rWpauH+Cm6Fqg3QKn6MNeAkZmHDa6QaISGIL/fZDtpN6eeM4hRYnUWcrl9x9ycQPneKua462mncwbBnUUcI7bHFxivL+TeZ12mtSzi4zNH2dRrPZ2xqoalQtNUUe0Qe5FvJP5IakjcklMaAwPELEUbHODXrvOoGU5ph6vgoAYkaOsSuiFBrNrQObV3r5Ch+EDQyRnxYZsq5GdfUpWcVGuYLW3c7zGYCiWQ70gMDLXTg+jDHHtNKluqLuiFxsZrMJ1cHvS2AtUS5k/nE5mODihDaoUiLufwSVf9H+FS5d5RzGMkaw6vKPxGnjWr2IGdSgrKBcGmWv0LhK70I0rvrBeRBtlfneeVMmMYJN2UQXyl7HnvBfatVHmV9deH3vFb8iB1BNpxlASc94LhYFpTwoYDVhoMci8+tLKgRntBXhqgfEM3Wkp86MzQPYXjHubsWdmX3kqagmF1sV2A3qxjG2AyyT/0a+6DUM7NB5B5ekNvCfbTm0n1gulXWrOwOogc6UhmKGggF7gCS1Hmes0uSKVH2+0kWVJtEfVKY2TOXapaYs5B2cXeDHoVhdzbuEclSZZneNK0+BXMfi4PHB4V4rsTI3RpTC64Yrn4hoCGJz+43din7gX1jUoP+O30/JeLuTi5jMS3YZkmQzKeox/ASD4mw/bAwAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "HamaroGame/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61arm64C96584B6F00A464EAD1953AFF4B05118Parameter": {
+   "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+   "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64"
+  },
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Outputs": {
+  "GameZoneNameServers": {
+   "Description": "NS records to add at Gandi for mc.rowan.wang",
+   "Value": {
+    "Fn::Join": [
+     " ",
+     {
+      "Fn::GetAtt": [
+       "GameZone47EDBFB5",
+       "NameServers"
+      ]
+     }
+    ]
+   }
+  },
+  "InstanceId": {
+   "Value": {
+    "Ref": "McInstance7555C128"
+   }
+  },
+  "BucketName": {
+   "Value": {
+    "Ref": "DataBucketE3889A50"
+   }
+  },
+  "ApiUrl": {
+   "Value": "https://api.mc.rowan.wang"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

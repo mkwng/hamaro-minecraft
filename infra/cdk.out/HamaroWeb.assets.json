@@ -1,0 +1,81 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6": {
+      "displayName": "HamaroWeb/Custom::S3AutoDeleteObjectsCustomResourceProvider Code",
+      "source": {
+        "path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "414716064140-us-east-1-899101c5": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-east-1",
+          "objectKey": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-east-1"
+        }
+      }
+    },
+    "c49d356cac773d491c5f7ac148995a1181498a8e289429f8612a7f7e3814f535": {
+      "displayName": "SiteDeploy/AwsCliLayer/Code",
+      "source": {
+        "path": "asset.c49d356cac773d491c5f7ac148995a1181498a8e289429f8612a7f7e3814f535.zip",
+        "packaging": "file"
+      },
+      "destinations": {
+        "414716064140-us-east-1-62a7f8d1": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-east-1",
+          "objectKey": "c49d356cac773d491c5f7ac148995a1181498a8e289429f8612a7f7e3814f535.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-east-1"
+        }
+      }
+    },
+    "3423a042b818e31c1e34a19d6689ab2e5f9b70fcbe9e71df66f241b20a200bd9": {
+      "displayName": "Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Code",
+      "source": {
+        "path": "asset.3423a042b818e31c1e34a19d6689ab2e5f9b70fcbe9e71df66f241b20a200bd9",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "414716064140-us-east-1-4a5e340c": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-east-1",
+          "objectKey": "3423a042b818e31c1e34a19d6689ab2e5f9b70fcbe9e71df66f241b20a200bd9.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-east-1"
+        }
+      }
+    },
+    "25e19d27543d2dc4388c8152e44e26eb44e8e05bf3c8c2f69ea790aee6823b51": {
+      "displayName": "SiteDeploy/Asset1",
+      "source": {
+        "path": "asset.25e19d27543d2dc4388c8152e44e26eb44e8e05bf3c8c2f69ea790aee6823b51",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "414716064140-us-east-1-f2cd54cb": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-east-1",
+          "objectKey": "25e19d27543d2dc4388c8152e44e26eb44e8e05bf3c8c2f69ea790aee6823b51.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-east-1"
+        }
+      }
+    },
+    "91daa996e8e096d86f04d156b64724e32a583e490eb313217137020b22d8f55b": {
+      "displayName": "HamaroWeb Template",
+      "source": {
+        "path": "HamaroWeb.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "414716064140-us-east-1-2056a434": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-east-1",
+          "objectKey": "91daa996e8e096d86f04d156b64724e32a583e490eb313217137020b22d8f55b.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

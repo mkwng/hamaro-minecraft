@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hamaro Minecraft</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='55' fill='%2378b943'/><rect y='55' width='100' height='45' fill='%237a5a3a'/></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1><span class="grass"></span> Hamaro Minecraft</h1>
+    <p class="sub">Hazel · Marlowe · Rowan</p>
+  </header>
+
+  <!-- Big status card: what the kids see -->
+  <section id="card" class="card state-loading">
+    <div id="status-face">⏳</div>
+    <div id="status-line">Checking on the server…</div>
+
+    <button id="start-btn" class="bigbtn hidden">▶ Start the server</button>
+
+    <div id="progress" class="hidden">
+      <div class="bar"><div id="bar-fill"></div></div>
+      <div id="progress-note">Waking up the machine… this takes about 2 minutes</div>
+    </div>
+
+    <div id="online-info" class="hidden">
+      <div class="addr-row">
+        <code id="addr">mc.rowan.wang</code>
+        <button id="copy-btn" title="Copy server address">Copy</button>
+      </div>
+      <div id="players-line"></div>
+      <div class="hint">Open Minecraft → Multiplayer → Add Server → paste the address</div>
+    </div>
+  </section>
+
+  <p class="note">The server takes a nap after 15 minutes with nobody playing —
+  that's normal! Just press Start and it wakes right up.</p>
+
+  <!-- Admin -->
+  <details id="admin">
+    <summary>Grown-ups</summary>
+
+    <div id="login-box">
+      <input id="password" type="password" placeholder="Admin password" autocomplete="current-password">
+      <button id="login-btn">Log in</button>
+      <span id="login-err" class="err"></span>
+    </div>
+
+    <div id="admin-panel" class="hidden">
+      <nav id="tabs">
+        <button data-tab="worlds" class="tab active">Worlds</button>
+        <button data-tab="settings" class="tab">Settings</button>
+        <button data-tab="players" class="tab">Players</button>
+        <button data-tab="backups" class="tab">Backups</button>
+        <button data-tab="console" class="tab">Console</button>
+      </nav>
+
+      <section id="tab-worlds" class="tabpane">
+        <p>Each world is a self-contained profile (its own Minecraft version, settings, and mods).
+           Switching backs up the current world first.</p>
+        <ul id="world-list"></ul>
+        <div class="row">
+          <input id="new-world-name" placeholder="new-world-name (letters, numbers, dashes)">
+          <button id="new-world-btn">Create world</button>
+        </div>
+      </section>
+
+      <section id="tab-settings" class="tabpane hidden">
+        <p>Settings for profile <b id="settings-profile"></b> — any
+           <a href="https://docker-minecraft-server.readthedocs.io/" target="_blank" rel="noopener">itzg variable</a> works.
+           <code>VERSION</code> must stay pinned (never LATEST).</p>
+        <textarea id="settings-env" rows="16" spellcheck="false"></textarea>
+        <div class="row">
+          <button id="settings-save">Save</button>
+          <button id="settings-apply">Save + apply now (restarts server)</button>
+        </div>
+      </section>
+
+      <section id="tab-players" class="tabpane hidden">
+        <p>Only players on the whitelist can join. Ops can use in-game commands.</p>
+        <div class="cols">
+          <div><h3>Whitelist</h3><ul id="whitelist"></ul>
+            <div class="row"><input id="wl-name" placeholder="Minecraft username"><button id="wl-add">Add</button></div>
+          </div>
+          <div><h3>Ops (admins in game)</h3><ul id="opslist"></ul>
+            <div class="row"><input id="op-name" placeholder="Minecraft username"><button id="op-add">Add</button></div>
+          </div>
+        </div>
+        <p class="hint">Changes apply on save; if the server is running it restarts briefly.
+           To ban someone right now, use the Console tab: <code>ban TheirName</code></p>
+        <div class="row"><button id="players-save">Save + apply</button></div>
+      </section>
+
+      <section id="tab-backups" class="tabpane hidden">
+        <div class="row"><button id="backup-now">Back up now</button></div>
+        <ul id="backup-list"></ul>
+        <div class="restore-box">
+          <p>Restore selected backup into profile:</p>
+          <div class="row">
+            <input id="restore-target" placeholder="profile name (existing or new)">
+            <button id="restore-btn" disabled>Restore</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-console" class="tabpane hidden">
+        <p>Runs a server command (like typing in the server console):
+           <code>ban Name</code>, <code>kick Name</code>, <code>weather clear</code>, <code>time set day</code>…</p>
+        <div class="row"><input id="cmd" placeholder="command"><button id="cmd-run">Run</button></div>
+        <pre id="cmd-out"></pre>
+        <hr>
+        <div class="row"><button id="stop-btn" class="danger">Stop server now (saves + backs up first)</button></div>
+      </section>
+
+      <div id="op-status" class="hidden"></div>
+      <div class="row logout-row"><button id="logout-btn">Log out</button></div>
+    </div>
+  </details>
+
+  <footer>runs on AWS · turns itself off to save money · <a href="https://github.com" id="repo-link">how it works</a></footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

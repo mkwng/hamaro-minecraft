@@ -1,0 +1,81 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "c49d356cac773d491c5f7ac148995a1181498a8e289429f8612a7f7e3814f535": {
+      "displayName": "ServerScripts/AwsCliLayer/Code",
+      "source": {
+        "path": "asset.c49d356cac773d491c5f7ac148995a1181498a8e289429f8612a7f7e3814f535.zip",
+        "packaging": "file"
+      },
+      "destinations": {
+        "414716064140-us-west-2-b626fe71": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-west-2",
+          "objectKey": "c49d356cac773d491c5f7ac148995a1181498a8e289429f8612a7f7e3814f535.zip",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-west-2"
+        }
+      }
+    },
+    "3423a042b818e31c1e34a19d6689ab2e5f9b70fcbe9e71df66f241b20a200bd9": {
+      "displayName": "Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Code",
+      "source": {
+        "path": "asset.3423a042b818e31c1e34a19d6689ab2e5f9b70fcbe9e71df66f241b20a200bd9",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "414716064140-us-west-2-64626e4f": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-west-2",
+          "objectKey": "3423a042b818e31c1e34a19d6689ab2e5f9b70fcbe9e71df66f241b20a200bd9.zip",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-west-2"
+        }
+      }
+    },
+    "234cd2e7f97aed7e5ef2a32c24f76dceae26079f7389c38c7a5e9c07427b95ff": {
+      "displayName": "ServerScripts/Asset1",
+      "source": {
+        "path": "asset.234cd2e7f97aed7e5ef2a32c24f76dceae26079f7389c38c7a5e9c07427b95ff",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "414716064140-us-west-2-d3845c07": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-west-2",
+          "objectKey": "234cd2e7f97aed7e5ef2a32c24f76dceae26079f7389c38c7a5e9c07427b95ff.zip",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-west-2"
+        }
+      }
+    },
+    "323347951e7d1d8db6ae594c955c9cc8a0b43fe1c084ee136078bfff3d92ae31": {
+      "displayName": "ApiFn/Code",
+      "source": {
+        "path": "asset.323347951e7d1d8db6ae594c955c9cc8a0b43fe1c084ee136078bfff3d92ae31",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "414716064140-us-west-2-53ab0910": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-west-2",
+          "objectKey": "323347951e7d1d8db6ae594c955c9cc8a0b43fe1c084ee136078bfff3d92ae31.zip",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-west-2"
+        }
+      }
+    },
+    "2b2ebb354df608da7db26b6b895412d91deafdd440ff46331d83d4edb9fec767": {
+      "displayName": "HamaroGame Template",
+      "source": {
+        "path": "HamaroGame.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "414716064140-us-west-2-5599e5dc": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-west-2",
+          "objectKey": "2b2ebb354df608da7db26b6b895412d91deafdd440ff46331d83d4edb9fec767.json",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-west-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

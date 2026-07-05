@@ -1,0 +1,15 @@
+[Unit]
+Description=Hamaro Minecraft boot (DNS update, config sync, server start)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/local/bin/hamaro-sync
+ExecStart=/opt/hamaro/boot.sh
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target
