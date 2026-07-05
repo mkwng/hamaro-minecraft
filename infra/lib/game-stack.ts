@@ -87,7 +87,7 @@ export class GameStack extends Stack {
     });
 
     const sg = new ec2.SecurityGroup(this, "McSg", {
-      vpc, description: "Hamaro Minecraft — game port only, no SSH (SSM instead)",
+      vpc, description: "Hamaro Minecraft - game port only, no SSH (SSM instead)",
       allowAllOutbound: true,
     });
     sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(25565), "Minecraft Java");
