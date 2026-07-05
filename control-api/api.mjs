@@ -231,6 +231,20 @@ async function getOp(commandId) {
 export async function handler(event) {
   const method = event.requestContext?.http?.method || "GET";
   const path = (event.rawPath || "/").replace(/\/+$/, "") || "/";
+
+  // The $default route catches OPTIONS before API Gateway's CORS shortcut can,
+  // so answer preflights here (a 401 preflight blocks every browser request).
+  if (method === "OPTIONS") {
+    return {
+      statusCode: 204,
+      headers: {
+        ...CORS,
+        "access-control-allow-methods": "GET,POST,PUT,DELETE",
+        "access-control-allow-headers": "authorization,content-type",
+        "access-control-max-age": "3600",
+      },
+    };
+  }
   let body = {};
   if (event.body) {
     try { body = JSON.parse(event.isBase64Encoded ? Buffer.from(event.body, "base64").toString() : event.body); }
