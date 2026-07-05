@@ -2,7 +2,9 @@ node_modules/
 *.js.map
 infra/dist/
 .DS_Store
-# cdk.out IS committed on purpose (CloudFormation fallback if CDK ever rots)
-!cdk.out/
+# cdk.out IS committed on purpose (CloudFormation fallback if CDK ever rots),
+# except its transient cache/lock files:
+infra/cdk.out/.cache/
+infra/cdk.out/*.lock
 # local secrets — never commit
 secrets.local/
