@@ -12,17 +12,18 @@ STAGE=/srv/minecraft/backups
 mkdir -p "$STAGE"
 TMP="${STAGE}/inflight.tar.gz"
 
+# Live mode only if the container is up AND rcon answers (a server mid-boot has
+# no RCON yet — tar cold in that case rather than failing the whole backup).
 LIVE=false
-if docker ps --format '{{.Names}}' | grep -q '^hamaro-mc$'; then LIVE=true; fi
-
-if $LIVE; then
-  docker exec hamaro-mc rcon-cli save-off >/dev/null
-  docker exec hamaro-mc rcon-cli save-all flush >/dev/null
+if docker ps --format '{{.Names}}' | grep -q '^hamaro-mc$' \
+   && docker exec hamaro-mc rcon-cli save-all flush >/dev/null 2>&1; then
+  LIVE=true
+  docker exec hamaro-mc rcon-cli save-off >/dev/null 2>&1 || true
   sleep 3
 fi
 tar -czf "$TMP" -C "$PROFILE_DIR" data profile.env
 if $LIVE; then
-  docker exec hamaro-mc rcon-cli save-on >/dev/null
+  docker exec hamaro-mc rcon-cli save-on >/dev/null 2>&1 || true
 fi
 
 aws s3 cp "$TMP" "s3://${HAMARO_BUCKET}/${KEY}" --no-progress

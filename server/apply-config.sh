@@ -6,8 +6,10 @@ set -euo pipefail
 source /etc/hamaro/env
 
 if docker ps --format '{{.Names}}' | grep -q '^hamaro-mc$'; then
-  /opt/hamaro/backup.sh
-  docker stop -t 120 hamaro-mc
-  docker rm hamaro-mc
+  # A failed backup must never strand a switch halfway (EBS + snapshots still
+  # protect the world) — warn and carry on.
+  /opt/hamaro/backup.sh || echo "[apply-config] WARN: pre-switch backup failed, continuing"
+  docker stop -t 120 hamaro-mc || true
+  docker rm hamaro-mc || true
 fi
 exec /opt/hamaro/boot.sh
