@@ -1,11 +1,7 @@
 import { createContext, useContext, useState } from "react";
 import { auth, type Status } from "../api";
-import DeckTab from "./DeckTab";
 import PlayersTab from "./PlayersTab";
-import WorldsTab from "./WorldsTab";
-import SettingsTab from "./SettingsTab";
-import ModsTab from "./ModsTab";
-import BackupsTab from "./BackupsTab";
+import WorldTab from "./WorldTab";
 import AdminsTab from "./AdminsTab";
 import ConsoleTab from "./ConsoleTab";
 
@@ -13,11 +9,14 @@ import ConsoleTab from "./ConsoleTab";
 export const OpStatusCtx = createContext<(msg: string) => void>(() => {});
 export const useOpStatus = () => useContext(OpStatusCtx);
 
-const TABS = ["Deck", "Players", "Worlds", "Mods", "Settings", "Backups", "Admins", "Console"] as const;
+// Four tabs, clear ownership: People / Place / Access / Power tools.
+// (World has sub-sections: overview, warps, mods, settings, backups.)
+const TABS = ["Players", "World", "Admins", "Console"] as const;
 
 export default function AdminPanel({ status }: { status: Status | null }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]>("Deck");
+  const [tab, setTab] = useState<(typeof TABS)[number]>("Players");
   const [opMsg, setOpMsg] = useState("");
+  const serverReady = status?.instance === "running" && status?.server?.state === "running";
 
   return (
     <OpStatusCtx.Provider value={setOpMsg}>
@@ -29,14 +28,10 @@ export default function AdminPanel({ status }: { status: Status | null }) {
         ))}
       </nav>
       <div className="pane">
-        {tab === "Deck" && <DeckTab serverUp={status?.instance === "running" && status?.server?.state === "running"} />}
-        {tab === "Mods" && <ModsTab />}
-        {tab === "Players" && <PlayersTab serverUp={status?.instance === "running"} />}
-        {tab === "Worlds" && <WorldsTab activeProfile={status?.activeProfile || ""} />}
-        {tab === "Settings" && <SettingsTab />}
-        {tab === "Backups" && <BackupsTab />}
+        {tab === "Players" && <PlayersTab serverUp={serverReady} />}
+        {tab === "World" && <WorldTab activeProfile={status?.activeProfile || ""} serverUp={serverReady} />}
         {tab === "Admins" && <AdminsTab />}
-        {tab === "Console" && <ConsoleTab serverUp={status?.instance === "running"} />}
+        {tab === "Console" && <ConsoleTab serverUp={serverReady} />}
       </div>
       {opMsg && <div className="opstatus">{opMsg}</div>}
       <div className="row logout-row">

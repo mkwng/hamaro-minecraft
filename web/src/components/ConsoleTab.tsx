@@ -4,6 +4,31 @@ import { useInterval } from "../hooks";
 import { useOpStatus } from "./AdminPanel";
 import CommandBuilder from "./CommandBuilder";
 
+// Full command history (who ran what, from every admin and the GUI) with re-run.
+function ActionHistory() {
+  const flash = useOpStatus();
+  const [actions, setActions] = useState<{ ts: number; who: string; commands: string[] }[]>([]);
+  useEffect(() => { api<{ actions: any[] }>("/actions").then((r) => setActions(r.actions)).catch(() => {}); }, []);
+  if (!actions.length) return null;
+  return (
+    <>
+      <h3>History <span className="hint">(every admin action — watch and learn)</span></h3>
+      <div className="feed">
+        {actions.slice(0, 15).map((a, i) => (
+          <div key={a.ts + "-" + i} className="feeditem">
+            <span className="hint">{new Date(a.ts).toLocaleString()} · {a.who}</span>
+            <code>{a.commands.slice(0, 3).join("  ·  ")}{a.commands.length > 3 ? `  (+${a.commands.length - 3})` : ""}</code>
+            <span className="spacer" />
+            <button className="mini" title="run again" onClick={() =>
+              api("/commands", { method: "POST", body: JSON.stringify({ commands: a.commands }) })
+                .then(() => flash("✔ re-ran")).catch((e) => flash("✖ " + e.message))}>↻</button>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function LogLine({ line }: { line: string }) {
   const cls = /ERROR|Exception/i.test(line) ? "error" : /WARN/i.test(line) ? "warn" : "";
   return <div className={cls}>{line}</div>;
@@ -62,6 +87,8 @@ export default function ConsoleTab({ serverUp }: { serverUp: boolean }) {
       </div>
 
       <CommandBuilder onRun={runCommand} serverUp={serverUp} />
+
+      <ActionHistory />
 
       <hr />
       <div className="row">

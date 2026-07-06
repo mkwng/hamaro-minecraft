@@ -1,105 +1,55 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, WARP_GLYPHS, type OnlinePlayer, type Warp, type InvItem } from "../api";
 import { useAsync, useInterval } from "../hooks";
 import { useOpStatus } from "./AdminPanel";
+import { CATEGORIES, FAVORITES, EFFECTS, MOBS, GAMEMODES, categorize, type Category } from "../deck";
 
-function PlayerCard({ p, warps, onWarpsChanged }: { p: OnlinePlayer; warps: Record<string, Warp>; onWarpsChanged: () => void }) {
-  const flash = useOpStatus();
-  const [inv, setInv] = useState<InvItem[] | null>(null);
-  const [showInv, setShowInv] = useState(false);
-  const [item, setItem] = useState("");
-  const [count, setCount] = useState("1");
-  const [warp, setWarp] = useState(Object.keys(warps)[0] || "");
+type FeedEntry = { ts: number; who: string; commands: string[]; undo?: string[] };
+type Recipe = { steps: string[] };
 
+export function HoldButton({ label, onFire, ms = 900 }: { label: string; onFire: () => void; ms?: number }) {
+  const [held, setHeld] = useState(false);
+  const timer = useRef<number>(0);
+  const start = () => { setHeld(true); timer.current = window.setTimeout(() => { setHeld(false); onFire(); }, ms); };
+  const cancel = () => { setHeld(false); clearTimeout(timer.current); };
   return (
-    <div className="player-card">
-      <b>{p.name}</b>
-      <span className="hint">{p.dimension || "?"} · {p.x ?? "?"}, {p.y ?? "?"}, {p.z ?? "?"}</span>
-      <span className="spacer" />
-      <button onClick={async () => {
-        setShowInv(!showInv);
-        if (!inv) {
-          try { setInv((await api<{ items: InvItem[] }>(`/players/${p.name}/inventory`)).items); }
-          catch (e: any) { flash("✖ " + e.message); }
-        }
-      }}>Inventory</button>
-      <button onClick={async () => {
-        const name = prompt(`Name this warp (where ${p.name} is standing):`);
-        if (!name) return;
-        try { await api("/warps", { method: "POST", body: JSON.stringify({ name, player: p.name }) }); onWarpsChanged(); flash(`✔ warp "${name}" saved`); }
-        catch (e: any) { flash("✖ " + e.message); }
-      }}>Save spot as warp</button>
-      <span className="row" style={{ margin: 0 }}>
-        <input list="item-ideas" placeholder="item" value={item} onChange={(e) => setItem(e.target.value)} style={{ maxWidth: 150 }} />
-        <input className="short" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} />
-        <button onClick={async () => {
-          try { flash("✔ " + (await api<{ gave: string }>("/give", { method: "POST", body: JSON.stringify({ player: p.name, item, count }) })).gave); }
-          catch (e: any) { flash("✖ " + e.message); }
-        }}>Give</button>
-      </span>
-      {Object.keys(warps).length > 0 && (
-        <span className="row" style={{ margin: 0 }}>
-          <select value={warp} onChange={(e) => setWarp(e.target.value)}>
-            {Object.keys(warps).map((w) => <option key={w}>{w}</option>)}
-          </select>
-          <button onClick={async () => {
-            try { flash("✔ " + (await api<{ teleported: string }>("/tp", { method: "POST", body: JSON.stringify({ player: p.name, warp }) })).teleported); }
-            catch (e: any) { flash("✖ " + e.message); }
-          }}>TP</button>
-        </span>
-      )}
-      {showInv && (
-        <div className="inv">
-          {inv === null ? "peeking…" : inv.length === 0 ? "(empty-handed!)" :
-            inv.map((it) => (
-              <span className="invitem" key={it.slot} title={`${it.item} ×${it.count}`}>
-                <img src={`/items/${it.item}.png`} alt="" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
-                {it.item}<em>×{it.count}</em>
-              </span>
-            ))}
-        </div>
-      )}
-    </div>
+    <button className={"danger holdbtn" + (held ? " holding" : "")}
+      onPointerDown={start} onPointerUp={cancel} onPointerLeave={cancel} title="press and hold">
+      {label}
+    </button>
   );
 }
 
-function RoleList({ title, subtitle, role, names, onChange }: {
-  title: string; subtitle?: string; role: "whitelist" | "op"; names: string[]; onChange: (names: string[]) => void;
-}) {
-  const flash = useOpStatus();
-  const [name, setName] = useState("");
-  const key = role === "op" ? "ops" : "whitelist";
-  const act = async (n: string, action: "add" | "remove") => {
-    try {
-      const r = await api<any>(`/players/${role}`, { method: "POST", body: JSON.stringify({ name: n, action }) });
-      onChange(r[key]);
-      flash(`✔ ${action === "add" ? "added" : "removed"} ${n} (${r.applied})`);
-    } catch (e: any) { flash("✖ " + e.message); }
-  };
-  return (
-    <>
-      <h3>{title} {subtitle && <span className="hint">({subtitle})</span>}</h3>
-      <ul className="list">
-        {names.map((n) => (
-          <li key={n}>{n}<span className="spacer" /><button onClick={() => act(n, "remove")}>Remove</button></li>
-        ))}
-      </ul>
-      <div className="row">
-        <input placeholder="Minecraft username" value={name} onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && name && (act(name, "add"), setName(""))} />
-        <button onClick={() => { if (name) { act(name, "add"); setName(""); } }}>Add</button>
-      </div>
-    </>
-  );
-}
-
+// Everything about PEOPLE: who's online (and doing things to/for them),
+// recipes (player-action macros), and who's allowed in (whitelist/ops).
 export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
-  const [online, setOnline] = useState<OnlinePlayer[] | null>(null);
-  const [warpsData, reloadWarps] = useAsync(() => api<{ warps: Record<string, Warp> }>("/warps"));
   const flash = useOpStatus();
+  const [online, setOnline] = useState<OnlinePlayer[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [warpsData] = useAsync(() => api<{ warps: Record<string, Warp> }>("/warps"));
+  const [items, setItems] = useState<string[]>([]);
+  const [cat, setCat] = useState<Category | "all">("favorites");
+  const [query, setQuery] = useState("");
+  const [qty, setQty] = useState(1);
+  const [feed, setFeed] = useState<FeedEntry[]>([]);
+  const [recipes, setRecipes] = useState<Record<string, Recipe>>({});
+  const [recording, setRecording] = useState<string[] | null>(null);
+  const [inv, setInv] = useState<{ player: string; items: InvItem[] } | null>(null);
   const [wl, setWl] = useState<string[] | null>(null);
   const [ops, setOps] = useState<string[] | null>(null);
-  const [wn, setWn] = useState({ name: "", x: "", y: "", z: "", type: "pin" });
+
+  const warps = warpsData?.warps || {};
+  const targets = [...selected].filter((p) => online.some((o) => o.name === p));
+
+  const loadOnline = () => serverUp && api<{ online: OnlinePlayer[] }>("/players")
+    .then((r) => {
+      setOnline(r.online);
+      setSelected((s) => new Set([...s].filter((n) => r.online.some((o) => o.name === n))));
+    }).catch(() => {});
+  useEffect(() => { loadOnline(); }, [serverUp]);
+  useInterval(loadOnline, 12000);
+  useEffect(() => { fetch("/items/index.json").then((r) => r.json()).then(setItems).catch(() => {}); }, []);
+  useEffect(() => { api<{ recipes: Record<string, Recipe> }>("/recipes").then((r) => setRecipes(r.recipes)).catch(() => {}); }, []);
 
   const loadRoles = async () => {
     const r = await api<{ active: string }>("/profiles");
@@ -107,51 +57,222 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
     const get = (k: string) => (p.env.match(new RegExp(`^${k}=(.*)$`, "m"))?.[1] || "").split(",").map((s) => s.trim()).filter(Boolean);
     setWl(get("WHITELIST")); setOps(get("OPS"));
   };
-  const loadOnline = () => serverUp && api<{ online: OnlinePlayer[] }>("/players").then((r) => setOnline(r.online)).catch(() => {});
-  useAsync(async () => { await loadRoles(); loadOnline(); });
-  useInterval(loadOnline, 10000);
+  useEffect(() => { loadRoles().catch(() => {}); }, []);
 
-  const warps = warpsData?.warps || {};
+  async function run(templates: string[], opts: { undo?: string[] } = {}) {
+    if (templates.some((t) => t.includes("{player}")) && targets.length === 0) {
+      return flash("✖ select at least one player first");
+    }
+    const commands = templates.flatMap((t) =>
+      t.includes("{player}") ? targets.map((p) => t.replaceAll("{player}", p)) : [t]);
+    if (recording) setRecording([...recording, ...templates]);
+    setFeed((f) => [{ ts: Date.now(), who: "you", commands, undo: opts.undo }, ...f].slice(0, 20));
+    try {
+      await api("/commands", { method: "POST", body: JSON.stringify({ commands }) });
+      flash(`✔ ${commands.length} command${commands.length === 1 ? "" : "s"} sent`);
+    } catch (e: any) { flash("✖ " + e.message); }
+  }
+
+  const shown = useMemo(() => {
+    const q = query.toLowerCase();
+    const pool = q ? items.filter((i) => i.includes(q))
+      : cat === "all" ? items
+      : cat === "favorites" ? FAVORITES.filter((f) => items.includes(f))
+      : items.filter((i) => categorize(i) === cat);
+    return pool.slice(0, 120);
+  }, [items, cat, query]);
+
+  const give = (item: string) => {
+    if (inv && !targets.includes(inv.player)) {
+      run([`give ${inv.player} ${item} ${qty}`]).then(() => peek(inv.player));
+    } else {
+      run([`give {player} ${item} ${qty}`]);
+    }
+  };
+
+  async function peek(player: string) {
+    try {
+      const r = await api<{ items: InvItem[] }>(`/players/${player}/inventory`);
+      setInv({ player, items: r.items });
+    } catch (e: any) { flash("✖ " + e.message); }
+  }
+
+  async function saveRecording() {
+    if (!recording?.length) { setRecording(null); return; }
+    const name = prompt("Name this recipe:", "birthday kit");
+    if (name) {
+      const r = await api<{ recipes: Record<string, Recipe> }>("/recipes", {
+        method: "PUT", body: JSON.stringify({ name, steps: recording }),
+      });
+      setRecipes(r.recipes);
+      flash(`✔ recipe "${name}" saved (${recording.length} steps)`);
+    }
+    setRecording(null);
+  }
+
+  function RoleList({ title, subtitle, role, names, onChange }: {
+    title: string; subtitle?: string; role: "whitelist" | "op"; names: string[]; onChange: (n: string[]) => void;
+  }) {
+    const [name, setName] = useState("");
+    const key = role === "op" ? "ops" : "whitelist";
+    const act = async (n: string, action: "add" | "remove") => {
+      try {
+        const r = await api<any>(`/players/${role}`, { method: "POST", body: JSON.stringify({ name: n, action }) });
+        onChange(r[key]);
+        flash(`✔ ${action === "add" ? "added" : "removed"} ${n} (${r.applied})`);
+      } catch (e: any) { flash("✖ " + e.message); }
+    };
+    return (
+      <>
+        <h3>{title} {subtitle && <span className="hint">({subtitle})</span>}</h3>
+        <ul className="list">
+          {names.map((n) => <li key={n}>{n}<span className="spacer" /><button onClick={() => act(n, "remove")}>Remove</button></li>)}
+        </ul>
+        <div className="row">
+          <input placeholder="Minecraft username" value={name} onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && name && (act(name, "add"), setName(""))} />
+          <button onClick={() => { if (name) { act(name, "add"); setName(""); } }}>Add</button>
+        </div>
+      </>
+    );
+  }
+
   return (
-    <>
-      <h3 style={{ marginTop: 0 }}>Online now</h3>
-      {!serverUp ? <p className="hint">(server is asleep)</p> :
-        online === null ? <p className="hint">looking…</p> :
-        online.length === 0 ? <p className="hint">(nobody on right now)</p> :
-        online.map((p) => <PlayerCard key={p.name} p={p} warps={warps} onWarpsChanged={reloadWarps} />)}
-
-      <h3>Warps & pins (shown on the world map)</h3>
-      <ul className="list">
-        {Object.entries(warps).map(([name, w]) => (
-          <li key={name}>
-            <b>{WARP_GLYPHS[w.type || "pin"]} {name}</b>
-            <span className="hint">{w.dimension.replace("minecraft:", "")} · {w.x}, {w.y}, {w.z}</span>
-            <span className="spacer" />
-            <button onClick={async () => { await api(`/warps/${encodeURIComponent(name)}`, { method: "DELETE" }); reloadWarps(); }}>Delete</button>
-          </li>
+    <div className="deck">
+      <h3 style={{ marginTop: 0 }}>Online now <span className="hint">(click to select targets)</span></h3>
+      {!serverUp && <p className="hint">(actions need the server fully awake — they activate by themselves when it is)</p>}
+      <div className="rail">
+        {serverUp && online.length === 0 && <p className="hint">(nobody online)</p>}
+        {online.map((p) => (
+          <div key={p.name} className={"pcard" + (selected.has(p.name) ? " sel" : "")}
+            onClick={() => setSelected((s) => { const n = new Set(s); n.has(p.name) ? n.delete(p.name) : n.add(p.name); return n; })}>
+            <img src={`/avatars/${p.name}.png`} alt="" onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")} />
+            <b>{p.name}</b>
+            <span className="pstats">❤ {p.health ?? "?"} 🍗 {p.food ?? "?"} ✦ {p.xp ?? 0}<em>{p.gamemode || "?"}</em></span>
+            <span className="hint">{p.x}, {p.y}, {p.z}</span>
+            <button onClick={(e) => { e.stopPropagation(); peek(p.name); }}>🎒</button>
+          </div>
         ))}
-      </ul>
-      <div className="row">
-        <input placeholder="warp name" style={{ maxWidth: 130 }} value={wn.name} onChange={(e) => setWn({ ...wn, name: e.target.value })} />
-        {(["x", "y", "z"] as const).map((k) => (
-          <input key={k} className="short" placeholder={k} inputMode="numeric" value={wn[k]} onChange={(e) => setWn({ ...wn, [k]: e.target.value })} />
-        ))}
-        <select value={wn.type} onChange={(e) => setWn({ ...wn, type: e.target.value })}>
-          {Object.entries(WARP_GLYPHS).map(([t, g]) => <option key={t} value={t}>{g} {t}</option>)}
-        </select>
-        <button onClick={async () => {
-          try { await api("/warps", { method: "POST", body: JSON.stringify(wn) }); setWn({ name: "", x: "", y: "", z: "", type: "pin" }); reloadWarps(); }
-          catch (e: any) { flash("✖ " + e.message); }
-        }}>Add by coords</button>
+        {online.length > 1 && (
+          <button onClick={() => setSelected(selected.size === online.length ? new Set() : new Set(online.map((o) => o.name)))}>
+            {selected.size === online.length ? "none" : "everyone"}
+          </button>
+        )}
       </div>
-      <p className="hint">Tip: "Save spot as warp" next to an online player, or shift+click the world map.</p>
 
-      {wl && <RoleList title="Whitelist" subtitle="instant — no restart needed" role="whitelist" names={wl} onChange={setWl} />}
+      {inv && (
+        <div className="invpanel">
+          <h3>🎒 {inv.player}'s inventory <span className="hint">(click palette to give · ✕ to take)</span>
+            <button style={{ float: "right" }} onClick={() => setInv(null)}>close</button></h3>
+          <div className="inv">
+            {inv.items.length === 0 && <span className="hint">(empty)</span>}
+            {inv.items.map((it) => (
+              <span className="invitem" key={it.slot}>
+                <img src={`/items/${it.item}.png`} alt="" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+                {it.item}<em>×{it.count}</em>
+                <button className="mini" title="take away" onClick={() =>
+                  run([`clear ${inv.player} minecraft:${it.item} ${it.count}`]).then(() => peek(inv.player))}>✕</button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {serverUp && <>
+        <h3>Give items {inv ? <span className="hint">→ {inv.player}'s backpack</span> : <span className="hint">→ selected players</span>}</h3>
+        <div className="row" style={{ marginTop: 4 }}>
+          <input placeholder="search items…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          {[1, 16, 64].map((n) => <button key={n} className={qty === n ? "primary" : ""} onClick={() => setQty(n)}>×{n}</button>)}
+        </div>
+        <div className="cattabs">
+          {["all", ...CATEGORIES].map((c) => (
+            <button key={c} className={"tab" + (cat === c && !query ? " active" : "")} onClick={() => { setCat(c as any); setQuery(""); }}>{c}</button>
+          ))}
+        </div>
+        <div className="palette">
+          {shown.map((i) => (
+            <button key={i} className="palitem" title={`give ${qty}× ${i}`} onClick={() => give(i)}>
+              <img src={`/items/${i}.png`} alt={i} loading="lazy" />
+              <span>{i.replaceAll("_", " ")}</span>
+            </button>
+          ))}
+          {shown.length === 0 && <span className="hint">no matches</span>}
+        </div>
+
+        <h3>Effects <span className="hint">(60s on selected)</span></h3>
+        <div className="btnwrap">
+          {EFFECTS.map((e) => (
+            <button key={e.id} onClick={() => run([`effect give {player} minecraft:${e.id} 60 1`])}>{e.label}</button>
+          ))}
+          <button onClick={() => run([`effect clear {player}`])}>🚿 clear effects</button>
+        </div>
+
+        <h3>Mode, travel & tough love</h3>
+        <div className="btnwrap">
+          {GAMEMODES.map((g) => (
+            <button key={g} onClick={() => {
+              const undo = online.filter((o) => targets.includes(o.name) && o.gamemode).map((o) => `gamemode ${o.gamemode} ${o.name}`);
+              run([`gamemode ${g} {player}`], { undo });
+            }}>{g === "creative" ? "🪄" : g === "survival" ? "⛏" : g === "adventure" ? "🗺" : "👁"} {g}</button>
+          ))}
+          {Object.entries(warps).map(([name, w]) => (
+            <button key={name} onClick={() => {
+              const undo = online.filter((o) => targets.includes(o.name))
+                .map((o) => `execute in minecraft:${o.dimension || "overworld"} run tp ${o.name} ${o.x} ${o.y} ${o.z}`);
+              run([`execute in ${w.dimension} run tp {player} ${w.x} ${w.y} ${w.z}`], { undo });
+            }}>{WARP_GLYPHS[w.type || "pin"]}→ {name}</button>
+          ))}
+          <HoldButton label="💀 kill" onFire={() => run(["kill {player}"])} />
+          <HoldButton label="🗑 empty inventory" onFire={() => run(["clear {player}"])} />
+        </div>
+
+        <h3>Spawn a friend <span className="hint">(at each selected player)</span></h3>
+        <div className="btnwrap">
+          {MOBS.map((m) => (
+            <button key={m} onClick={() => run([`execute at {player} run summon minecraft:${m} ~ ~ ~`])}>
+              <img className="eggicon" src={`/items/${m}_spawn_egg.png`} alt="" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+              {m}
+            </button>
+          ))}
+        </div>
+
+        <h3>Recipes <span className="hint">(repeatable action sequences)</span></h3>
+        <div className="btnwrap">
+          {recording === null
+            ? <button onClick={() => { setRecording([]); flash("● recording — every action becomes a step"); }}>● record new recipe</button>
+            : <button className="primary" onClick={saveRecording}>■ stop & save ({recording.length} steps)</button>}
+          {Object.entries(recipes).map(([name, r]) => (
+            <span className="recipechip" key={name}>
+              <button className="primary" title={r.steps.join("\n")}
+                onClick={() => api(`/recipes/${encodeURIComponent(name)}`, { method: "POST", body: JSON.stringify({ players: targets }) })
+                  .then((res: any) => flash(`✔ ran "${name}" (${res.count} commands)`))
+                  .catch((e) => flash("✖ " + e.message))}>▶ {name}</button>
+              <button className="mini" onClick={async () => {
+                if (!confirm(`Delete recipe "${name}"?`)) return;
+                const res = await api<{ recipes: Record<string, Recipe> }>(`/recipes/${encodeURIComponent(name)}`, { method: "DELETE" });
+                setRecipes(res.recipes);
+              }}>✕</button>
+            </span>
+          ))}
+        </div>
+
+        {feed.length > 0 && <>
+          <h3>This session <span className="hint">(the real commands — ↩ where undo exists)</span></h3>
+          <div className="feed">
+            {feed.slice(0, 8).map((f, i) => (
+              <div key={f.ts + "-" + i} className="feeditem">
+                <span className="hint">{new Date(f.ts).toLocaleTimeString()}</span>
+                <code>{f.commands.slice(0, 3).join("  ·  ")}{f.commands.length > 3 ? `  (+${f.commands.length - 3})` : ""}</code>
+                <span className="spacer" />
+                {f.undo && <button className="mini" onClick={() => run(f.undo!)}>↩ undo</button>}
+              </div>
+            ))}
+          </div>
+        </>}
+      </>}
+
+      {wl && <RoleList title="Whitelist" subtitle="who can join — instant, no restart" role="whitelist" names={wl} onChange={setWl} />}
       {ops && <RoleList title="Ops (admins in game)" role="op" names={ops} onChange={setOps} />}
-
-      <datalist id="item-ideas">
-        {["diamond", "emerald", "golden_apple", "elytra", "saddle", "name_tag", "cake", "trident", "shield", "bow", "ender_pearl", "spyglass", "firework_rocket"].map((i) => <option key={i} value={i} />)}
-      </datalist>
-    </>
+    </div>
   );
 }
