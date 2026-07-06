@@ -41,7 +41,10 @@ mv "$OUT"/unmined.index.html "$OUT"/index.html 2>/dev/null || true
 # Wire in live player markers: custom.markers.js is refreshed every minute by
 # the watchdog (no-cache), and loading it after the baked markers file lets it
 # override UnminedCustomMarkers before the viewer initializes.
-sed -i 's#</head>#<script src="custom.markers.js"></script></head>#' "$OUT/index.html" || true
+# Also: "fog of war" — unexplored world shows the page background, so paint it
+# dark with a faint pixel-dither fog instead of default white.
+FOG='<style>html,body{background:#0c0e0b!important}body{background-image:repeating-linear-gradient(0deg,rgba(72,213,151,.022) 0 2px,transparent 2px 8px),repeating-linear-gradient(90deg,rgba(125,138,114,.03) 0 2px,transparent 2px 10px)!important}canvas,img{image-rendering:pixelated}</style>'
+sed -i "s#</head>#${FOG}<script src=\"custom.markers.js\"></script></head>#" "$OUT/index.html" || true
 
 aws s3 sync "$OUT" "s3://${SITE_BUCKET}/map/" --delete --no-progress
 if [ -n "${SITE_DISTRIBUTION_ID:-}" ]; then
