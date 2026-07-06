@@ -75,14 +75,17 @@ fi
 MONTH=$(date -u +%Y-%m)
 if ! aws s3 ls "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" >/dev/null 2>&1; then
   if "$BIN" image render --world="$DATA/world" --dimension=overworld \
-      --output=/tmp/archive.png --zoomout=3 2>/dev/null; then
-    aws s3 cp /tmp/archive.png "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" --no-progress
-    aws s3 ls "s3://${SITE_BUCKET}/map-archive/" | awk '{print $NF}' | grep '\.png$' \
-      | python3 -c "import json,sys; print(json.dumps(sorted(l.strip() for l in sys.stdin if l.strip())))" \
-      | aws s3 cp - "s3://${SITE_BUCKET}/map-archive/index.json" \
-        --cache-control "no-cache" --content-type application/json || true
+      --output=/tmp/archive.png --zoomout=3; then
+    { aws s3 cp /tmp/archive.png "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" --no-progress \
+      && aws s3 ls "s3://${SITE_BUCKET}/map-archive/" | awk '{print $NF}' | grep '\.png$' \
+        | python3 -c "import json,sys; print(json.dumps(sorted(l.strip() for l in sys.stdin if l.strip())))" \
+        | aws s3 cp - "s3://${SITE_BUCKET}/map-archive/index.json" \
+          --cache-control "no-cache" --content-type application/json \
+      && log "archived time-lapse snapshot ${PROFILE}-${MONTH}"; } \
+      || log "WARN archive upload failed"
     rm -f /tmp/archive.png
-    log "archived time-lapse snapshot ${PROFILE}-${MONTH}"
+  else
+    log "WARN archive image render failed"
   fi
 fi
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, WARP_GLYPHS, type OnlinePlayer, type Warp, type InvItem } from "../api";
 import { useAsync, useInterval } from "../hooks";
 import { useOpStatus } from "./AdminPanel";
+import Drawer from "./Drawer";
 import { CATEGORIES, FAVORITES, EFFECTS, MOBS, GAMEMODES, categorize, type Category } from "../deck";
 
 type FeedEntry = { ts: number; who: string; commands: string[]; undo?: string[] };
@@ -37,6 +38,7 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
   const [inv, setInv] = useState<{ player: string; items: InvItem[] } | null>(null);
   const [wl, setWl] = useState<string[] | null>(null);
   const [ops, setOps] = useState<string[] | null>(null);
+  const [editRecipe, setEditRecipe] = useState<{ name: string; text: string } | null>(null);
 
   const warps = warpsData?.warps || {};
   const targets = [...selected].filter((p) => online.some((o) => o.name === p));
@@ -161,9 +163,9 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
       </div>
 
       {inv && (
-        <div className="invpanel">
-          <h3>🎒 {inv.player}'s inventory <span className="hint">(click palette to give · ✕ to take)</span>
-            <button style={{ float: "right" }} onClick={() => setInv(null)}>close</button></h3>
+        <Drawer title={<>🎒 {inv.player}'s inventory</>} onClose={() => setInv(null)}>
+          <p className="hint" style={{ marginTop: 0 }}>✕ takes an item away. To give, close this and use the palette
+            (or keep it open — palette clicks go into this backpack).</p>
           <div className="inv">
             {inv.items.length === 0 && <span className="hint">(empty)</span>}
             {inv.items.map((it) => (
@@ -175,7 +177,8 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
               </span>
             ))}
           </div>
-        </div>
+          <div className="row"><button onClick={() => peek(inv.player)}>↻ refresh</button></div>
+        </Drawer>
       )}
 
       {serverUp && <>
@@ -247,6 +250,7 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
                 onClick={() => api(`/recipes/${encodeURIComponent(name)}`, { method: "POST", body: JSON.stringify({ players: targets }) })
                   .then((res: any) => flash(`✔ ran "${name}" (${res.count} commands)`))
                   .catch((e) => flash("✖ " + e.message))}>▶ {name}</button>
+              <button className="mini" title="edit steps" onClick={() => setEditRecipe({ name, text: r.steps.join("\n") })}>✎</button>
               <button className="mini" onClick={async () => {
                 if (!confirm(`Delete recipe "${name}"?`)) return;
                 const res = await api<{ recipes: Record<string, Recipe> }>(`/recipes/${encodeURIComponent(name)}`, { method: "DELETE" });
@@ -255,6 +259,26 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
             </span>
           ))}
         </div>
+
+        {editRecipe && (
+          <Drawer title={<>✎ recipe: {editRecipe.name}</>} onClose={() => setEditRecipe(null)}>
+            <p className="hint" style={{ marginTop: 0 }}>One command per line. <code>{"{player}"}</code> repeats
+              that line for each selected player. Anything the console accepts works here.</p>
+            <textarea rows={12} spellCheck={false} value={editRecipe.text}
+              onChange={(e) => setEditRecipe({ ...editRecipe, text: e.target.value })} />
+            <div className="row">
+              <button className="primary" onClick={async () => {
+                const steps = editRecipe.text.split("\n").map((s) => s.trim()).filter(Boolean);
+                try {
+                  const res = await api<{ recipes: Record<string, Recipe> }>("/recipes", {
+                    method: "PUT", body: JSON.stringify({ name: editRecipe.name, steps }),
+                  });
+                  setRecipes(res.recipes); setEditRecipe(null); flash(`✔ recipe "${editRecipe.name}" updated`);
+                } catch (e: any) { flash("✖ " + e.message); }
+              }}>Save</button>
+            </div>
+          </Drawer>
+        )}
 
         {feed.length > 0 && <>
           <h3>This session <span className="hint">(the real commands — ↩ where undo exists)</span></h3>

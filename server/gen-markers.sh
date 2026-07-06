@@ -75,9 +75,10 @@ try:
         i = raw.find(key.encode())
         return struct.unpack(">i", raw[i + len(key):i + len(key) + 4])[0] if i >= 0 else None
     sx, sz = nbt_int("SpawnX"), nbt_int("SpawnZ")
-except Exception:
-    pass
+except Exception as ex:
+    print(f"[gen-markers] level.dat parse failed ({lvl}): {ex}", file=sys.stderr)
 if sx is not None and sz is not None:
+    print(f"[gen-markers] spawn at {sx},{sz}", file=sys.stderr)
     markers.append({"x": sx, "z": sz, "text": "🧭 spawn", "textColor": "#48d597",
                     "font": "bold 15px ui-monospace, monospace"})
 

@@ -135,12 +135,13 @@ export class GameStack extends Stack {
       resources: [
         `arn:aws:s3:::${C.siteBucketName}/map/*`,
         `arn:aws:s3:::${C.siteBucketName}/avatars/*`,
+        `arn:aws:s3:::${C.siteBucketName}/map-archive/*`,
       ],
     }));
     role.addToPolicy(new iam.PolicyStatement({
       actions: ["s3:ListBucket"],
       resources: [`arn:aws:s3:::${C.siteBucketName}`],
-      conditions: { StringLike: { "s3:prefix": ["map/*", "avatars/*"] } },
+      conditions: { StringLike: { "s3:prefix": ["map/*", "avatars/*", "map-archive/*"] } },
     }));
     role.addToPolicy(new iam.PolicyStatement({
       actions: ["cloudfront:CreateInvalidation"],
