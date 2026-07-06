@@ -38,15 +38,23 @@ export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 "$BIN" web render --world="$WORLD" --output="$OUT" --zoomin=2 --zoomout=4
 mv "$OUT"/unmined.index.html "$OUT"/index.html 2>/dev/null || true
 
-# Wire in live player markers: custom.markers.js is refreshed every minute by
-# the watchdog (no-cache), and loading it after the baked markers file lets it
-# override UnminedCustomMarkers before the viewer initializes.
-# Also: "fog of war" — unexplored world shows the page background, so paint it
-# dark with a faint pixel-dither fog instead of default white.
+# The generated viewer already loads custom.markers.js; bake warp landmarks +
+# the dark "fog of war" background into it now (the watchdog refreshes the same
+# file with live player positions every minute while the server runs).
+/opt/hamaro/gen-markers.sh > "$OUT/custom.markers.js" || true
+
+# Page-level fog styling + a 45s marker auto-refresh loop so live positions
+# update without reloading the map.
 FOG='<style>html,body{background:#0c0e0b!important}body{background-image:repeating-linear-gradient(0deg,rgba(72,213,151,.022) 0 2px,transparent 2px 8px),repeating-linear-gradient(90deg,rgba(125,138,114,.03) 0 2px,transparent 2px 10px)!important}canvas,img{image-rendering:pixelated}</style>'
-sed -i "s#</head>#${FOG}<script src=\"custom.markers.js\"></script></head>#" "$OUT/index.html" || true
+REFRESH='<script>setInterval(async()=>{try{if(typeof unmined==="undefined"||!unmined.olMap)return;const t=await(await fetch("custom.markers.js?t="+Date.now(),{cache:"no-store"})).text();(0,eval)(t);const m=(typeof UnminedCustomMarkers!=="undefined"&&UnminedCustomMarkers.isEnabled&&UnminedCustomMarkers.markers)||[];if(unmined.markersLayer)unmined.olMap.removeLayer(unmined.markersLayer);unmined.markersLayer=unmined.createMarkersLayer(m);unmined.olMap.addLayer(unmined.markersLayer);}catch(e){}},45000)</script>'
+sed -i "s#</head>#${FOG}</head>#" "$OUT/index.html" || true
+sed -i "s#</body>#${REFRESH}</body>#" "$OUT/index.html" || true
 
 aws s3 sync "$OUT" "s3://${SITE_BUCKET}/map/" --delete --no-progress
+# The synced copy of custom.markers.js must never be CDN-cached (it goes live-
+# stale within a minute); re-put it with explicit no-cache metadata.
+aws s3 cp "$OUT/custom.markers.js" "s3://${SITE_BUCKET}/map/custom.markers.js" \
+  --cache-control "no-cache, no-store" --content-type "application/javascript" --no-progress || true
 if [ -n "${SITE_DISTRIBUTION_ID:-}" ]; then
   aws cloudfront create-invalidation --distribution-id "$SITE_DISTRIBUTION_ID" --paths "/map/*" >/dev/null || true
 fi

@@ -3,6 +3,9 @@
 # (optionally) power off. Instance-initiated shutdown STOPS the instance
 # (set in CDK), so a stopped server bills only EBS storage.
 set -uo pipefail
+# Pick up any script updates shipped since boot — the goodnight backup and map
+# render must run the latest versions, not the ones from hours ago.
+/usr/local/bin/hamaro-sync >/dev/null 2>&1 || true
 source /etc/hamaro/env
 
 # itzg traps the stop signal and saves the world cleanly (120 s grace).
