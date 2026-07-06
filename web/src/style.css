@@ -291,6 +291,14 @@ ul.list li.selected { outline: 1px solid var(--green); border-radius: 2px; }
 .suggest img { width: 20px; height: 20px; image-rendering: pixelated; }
 .suggest .desc { color: var(--muted); font-size: .72rem; margin-left: auto; }
 
+/* join-request notification banner */
+.reqbanner {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  border: 1px solid var(--gold); border-left: 3px solid var(--gold); border-radius: 2px;
+  background: var(--bg2); padding: 10px 14px; margin-top: 14px; font-size: .85rem;
+}
+.reqitem { display: inline-flex; gap: 8px; align-items: center; }
+
 /* ---------- the Deck ---------- */
 .rail { display: flex; gap: 8px; flex-wrap: wrap; }
 .pcard {

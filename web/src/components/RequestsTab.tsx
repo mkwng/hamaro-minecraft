@@ -1,12 +1,12 @@
-import { useEffect } from "react";
 import { api, type JoinRequest } from "../api";
-import { useAsync } from "../hooks";
+import { useAsync, useInterval } from "../hooks";
 import { useOpStatus } from "./AdminPanel";
 
-export default function RequestsTab({ onCount }: { onCount: (n: number) => void }) {
+// Notification banner (not a tab): shows only while join requests are pending.
+export default function RequestsBanner() {
   const flash = useOpStatus();
   const [data, reload] = useAsync(() => api<{ requests: JoinRequest[] }>("/join-requests"));
-  useEffect(() => { onCount(data?.requests.length || 0); }, [data, onCount]);
+  useInterval(reload, 60000);
 
   const decide = async (username: string, action: "approve" | "deny") => {
     try {
@@ -18,21 +18,17 @@ export default function RequestsTab({ onCount }: { onCount: (n: number) => void 
     } catch (e: any) { flash("✖ " + e.message); }
   };
 
+  if (!data?.requests.length) return null;
   return (
-    <>
-      <p>People who asked to join. Approving whitelists them instantly and emails them the good news.</p>
-      <ul className="list">
-        {!data?.requests.length && <li className="hint">No pending requests.</li>}
-        {data?.requests.map((r) => (
-          <li key={r.username}>
-            <b>{r.username}</b>
-            <span className="hint">{r.email} · {new Date(r.at).toLocaleDateString()}</span>
-            <span className="spacer" />
-            <button className="primary" onClick={() => decide(r.username, "approve")}>Approve ✔</button>
-            <button className="danger" onClick={() => decide(r.username, "deny")}>Deny</button>
-          </li>
-        ))}
-      </ul>
-    </>
+    <div className="reqbanner">
+      <b>🔔 {data.requests.length} join request{data.requests.length === 1 ? "" : "s"}</b>
+      {data.requests.map((r) => (
+        <span key={r.username} className="reqitem">
+          <b>{r.username}</b> <span className="hint">({r.email})</span>
+          <button className="primary mini" onClick={() => decide(r.username, "approve")}>Approve ✔</button>
+          <button className="danger mini" onClick={() => decide(r.username, "deny")}>Deny</button>
+        </span>
+      ))}
+    </div>
   );
 }

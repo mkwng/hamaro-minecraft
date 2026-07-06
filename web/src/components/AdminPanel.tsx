@@ -2,7 +2,7 @@ import { createContext, useContext, useState } from "react";
 import { auth, type Status } from "../api";
 import DeckTab from "./DeckTab";
 import PlayersTab from "./PlayersTab";
-import RequestsTab from "./RequestsTab";
+import RequestsBanner from "./RequestsTab";
 import WorldsTab from "./WorldsTab";
 import SettingsTab from "./SettingsTab";
 import ModsTab from "./ModsTab";
@@ -14,20 +14,19 @@ import ConsoleTab from "./ConsoleTab";
 export const OpStatusCtx = createContext<(msg: string) => void>(() => {});
 export const useOpStatus = () => useContext(OpStatusCtx);
 
-const TABS = ["Deck", "Players", "Requests", "Worlds", "Mods", "Settings", "Backups", "Admins", "Console"] as const;
+const TABS = ["Deck", "Players", "Worlds", "Mods", "Settings", "Backups", "Admins", "Console"] as const;
 
 export default function AdminPanel({ status }: { status: Status | null }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]>("Players");
+  const [tab, setTab] = useState<(typeof TABS)[number]>("Deck");
   const [opMsg, setOpMsg] = useState("");
-  const [reqCount, setReqCount] = useState(0);
 
   return (
     <OpStatusCtx.Provider value={setOpMsg}>
+      <RequestsBanner />
       <nav className="tabs">
         {TABS.map((t, i) => (
           <button key={t} className={"tab" + (tab === t ? " active" : "")} onClick={() => setTab(t)}>
             <span className="hex">0x{i.toString(16).padStart(2, "0")}</span>{t}
-            {t === "Requests" && reqCount > 0 && <span className="badge" style={{ marginLeft: 6 }}>{reqCount}</span>}
           </button>
         ))}
       </nav>
@@ -35,7 +34,6 @@ export default function AdminPanel({ status }: { status: Status | null }) {
         {tab === "Deck" && <DeckTab serverUp={status?.instance === "running"} />}
         {tab === "Mods" && <ModsTab />}
         {tab === "Players" && <PlayersTab serverUp={status?.instance === "running"} />}
-        {tab === "Requests" && <RequestsTab onCount={setReqCount} />}
         {tab === "Worlds" && <WorldsTab activeProfile={status?.activeProfile || ""} />}
         {tab === "Settings" && <SettingsTab />}
         {tab === "Backups" && <BackupsTab />}
