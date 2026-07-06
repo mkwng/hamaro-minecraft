@@ -128,15 +128,19 @@ export class GameStack extends Stack {
       actions: ["ssm:GetParameter", "ssm:PutParameter"],
       resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/hamaro/*`],
     }));
-    // Publish the public terrain map into the website bucket (WebStack) at /map/.
+    // Publish the public terrain map (/map/) and mirrored player avatars
+    // (/avatars/) into the website bucket (WebStack).
     role.addToPolicy(new iam.PolicyStatement({
       actions: ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
-      resources: [`arn:aws:s3:::${C.siteBucketName}/map/*`],
+      resources: [
+        `arn:aws:s3:::${C.siteBucketName}/map/*`,
+        `arn:aws:s3:::${C.siteBucketName}/avatars/*`,
+      ],
     }));
     role.addToPolicy(new iam.PolicyStatement({
       actions: ["s3:ListBucket"],
       resources: [`arn:aws:s3:::${C.siteBucketName}`],
-      conditions: { StringLike: { "s3:prefix": ["map/*"] } },
+      conditions: { StringLike: { "s3:prefix": ["map/*", "avatars/*"] } },
     }));
     role.addToPolicy(new iam.PolicyStatement({
       actions: ["cloudfront:CreateInvalidation"],

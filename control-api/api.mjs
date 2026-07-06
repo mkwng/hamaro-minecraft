@@ -607,6 +607,9 @@ export async function handler(event) {
     if (method === "POST" && path === "/warps") return await postWarp(body);
     if (method === "POST" && path === "/tp") return await postTp(body);
     if (method === "POST" && path === "/map/render") { await requireRunning(); return reply(202, { commandId: await runCommand("/opt/hamaro/render-map.sh") }); }
+    // Pull the latest server scripts from S3 onto a RUNNING instance (normally
+    // this happens at boot and at stop; this covers "deployed mid-session").
+    if (method === "POST" && path === "/sync") { await requireRunning(); return reply(202, { commandId: await runCommand("/usr/local/bin/hamaro-sync && cp /opt/hamaro/env /etc/hamaro/env && echo synced") }); }
 
     let m;
     if ((m = path.match(/^\/warps\/([a-z0-9][a-z0-9-_ ]{0,30})$/i)) && method === "DELETE") return await deleteWarp(m[1]);

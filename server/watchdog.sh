@@ -42,6 +42,14 @@ if [ -n "$PLAYERS" ] && [ "$PLAYERS" -gt 0 ] 2>/dev/null; then
     POS=$(docker exec hamaro-mc rcon-cli data get entity $P Pos 2>/dev/null | grep -oE '\-?[0-9]+\.?[0-9]*d' | tr -d 'd' | head -3 | xargs)
     X=$(echo $POS | cut -d' ' -f1); Z=$(echo $POS | cut -d' ' -f3)
     [ -n "$X" ] && echo "$P|$X|$Z" >> /tmp/hamaro-players.txt
+    # Mirror the player's head avatar once into our own bucket (mc-heads.net is
+    # only contacted the first time we ever see this player).
+    if ! aws s3 ls "s3://${SITE_BUCKET}/avatars/${P}.png" >/dev/null 2>&1; then
+      if curl -fsSL --max-time 6 "https://mc-heads.net/avatar/${P}/16" -o /tmp/avatar.png 2>/dev/null; then
+        aws s3 cp /tmp/avatar.png "s3://${SITE_BUCKET}/avatars/${P}.png" \
+          --cache-control "public, max-age=604800" --content-type image/png >/dev/null 2>&1 || true
+      fi
+    fi
   done
 fi
 if /opt/hamaro/gen-markers.sh /tmp/hamaro-players.txt > /tmp/custom.markers.js 2>/dev/null; then
