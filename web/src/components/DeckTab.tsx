@@ -106,7 +106,7 @@ export default function DeckTab({ serverUp }: { serverUp: boolean }) {
     setRecording(null);
   }
 
-  if (!serverUp) return <p className="hint">(the Deck needs the server awake — start it from the home page)</p>;
+  if (!serverUp) return <p className="hint">(the Deck needs the server fully awake — if it's starting or going to sleep, this activates by itself in a minute)</p>;
 
   return (
     <div className="deck">

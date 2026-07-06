@@ -29,7 +29,7 @@ export default function AdminPanel({ status }: { status: Status | null }) {
         ))}
       </nav>
       <div className="pane">
-        {tab === "Deck" && <DeckTab serverUp={status?.instance === "running"} />}
+        {tab === "Deck" && <DeckTab serverUp={status?.instance === "running" && status?.server?.state === "running"} />}
         {tab === "Mods" && <ModsTab />}
         {tab === "Players" && <PlayersTab serverUp={status?.instance === "running"} />}
         {tab === "Worlds" && <WorldsTab activeProfile={status?.activeProfile || ""} />}

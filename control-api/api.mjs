@@ -241,6 +241,22 @@ async function requireRunning() {
   if (inst.state !== "running") throw reply(409, { error: `server machine is ${inst.state} — start it first` });
 }
 
+// Stricter gate for anything that talks to the game over RCON: the container
+// must actually be up (fresh heartbeat in "running"), not mid-boot or
+// mid-shutdown — otherwise users see raw docker errors.
+async function requireServerReady() {
+  await requireRunning();
+  const hb = await heartbeat();
+  const fresh = hb && Date.now() / 1000 - hb.ts < 180;
+  if (!fresh || hb.state !== "running") {
+    throw reply(409, {
+      error: hb?.state === "stopped"
+        ? "the server is going to sleep — press Start again in a minute"
+        : "the server is still waking up — try again in a minute",
+    });
+  }
+}
+
 async function postStop() {
   await requireRunning();
   return reply(202, { commandId: await runCommand("/opt/hamaro/stop-server.sh poweroff") });
@@ -288,7 +304,7 @@ async function postCommand(body) {
   if (typeof cmd !== "string" || !cmd.trim() || cmd.length > 200 || /[\n\r]/.test(cmd)) {
     return reply(400, { error: "command required (single line, <200 chars)" });
   }
-  await requireRunning();
+  await requireServerReady();
   const safe = cmd.replace(/'/g, `'\\''`);
   return reply(202, { commandId: await runCommand(`docker exec hamaro-mc rcon-cli '${safe}'`) });
 }
@@ -389,7 +405,7 @@ async function postGive(body) {
   if (!NAME_RE.test(player || "") || !/^[a-z0-9_]+(:[a-z0-9_/]+)?$/.test(item || "")) {
     return reply(400, { error: "need player and a plain item id like diamond or minecraft:oak_boat" });
   }
-  await requireRunning();
+  await requireServerReady();
   const out = await runCommandSync(rcon(`give ${player} ${item} ${n}`));
   if (/Unknown item|No player was found|Incorrect argument/i.test(out)) return reply(400, { error: out.trim().slice(0, 200) });
   return reply(200, { gave: `${n}x ${item} to ${player}`, raw: out.trim().slice(0, 200) });
@@ -446,7 +462,7 @@ async function postTp(body) {
   const warps = await readWarps();
   const w = warps[warp];
   if (!w) return reply(404, { error: `no warp named "${warp}"` });
-  await requireRunning();
+  await requireServerReady();
   const out = await runCommandSync(rcon(`execute in ${w.dimension} run tp ${player} ${w.x} ${w.y} ${w.z}`));
   if (/No player was found/i.test(out)) return reply(400, { error: `${player} is not online` });
   return reply(200, { teleported: `${player} → ${warp}`, raw: out.trim().slice(0, 200) });
@@ -454,7 +470,7 @@ async function postTp(body) {
 
 // Inventory peek: parse the SNBT well enough to list items and counts.
 async function getInventory(name) {
-  await requireRunning();
+  await requireServerReady();
   const out = await runCommandSync(rcon(`data get entity ${name} Inventory`));
   if (/No entity was found|No player was found/i.test(out)) return reply(404, { error: `${name} is not online` });
   const items = [];
@@ -563,7 +579,7 @@ async function postCommands(body, who) {
   if (!Array.isArray(cmds) || cmds.length < 1 || cmds.length > 100 || !cmds.every((c) => typeof c === "string" && CMD_RE.test(c))) {
     return reply(400, { error: "commands: 1-100 single-line strings" });
   }
-  await requireRunning();
+  await requireServerReady();
   const script = cmds.map((c) => `docker exec hamaro-mc rcon-cli '${c.replace(/'/g, `'\\''`)}' 2>&1`).join("\n");
   const commandId = await runCommand(script);
   await appendActions(who, cmds);
