@@ -2,7 +2,6 @@ import { createContext, useContext, useState } from "react";
 import { auth, type Status } from "../api";
 import DeckTab from "./DeckTab";
 import PlayersTab from "./PlayersTab";
-import RequestsBanner from "./RequestsTab";
 import WorldsTab from "./WorldsTab";
 import SettingsTab from "./SettingsTab";
 import ModsTab from "./ModsTab";
@@ -22,7 +21,6 @@ export default function AdminPanel({ status }: { status: Status | null }) {
 
   return (
     <OpStatusCtx.Provider value={setOpMsg}>
-      <RequestsBanner />
       <nav className="tabs">
         {TABS.map((t, i) => (
           <button key={t} className={"tab" + (tab === t ? " active" : "")} onClick={() => setTab(t)}>

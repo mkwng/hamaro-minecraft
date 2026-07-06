@@ -291,13 +291,25 @@ ul.list li.selected { outline: 1px solid var(--green); border-radius: 2px; }
 .suggest img { width: 20px; height: 20px; image-rendering: pixelated; }
 .suggest .desc { color: var(--muted); font-size: .72rem; margin-left: auto; }
 
-/* join-request notification banner */
-.reqbanner {
-  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-  border: 1px solid var(--gold); border-left: 3px solid var(--gold); border-radius: 2px;
-  background: var(--bg2); padding: 10px 14px; margin-top: 14px; font-size: .85rem;
+/* notification center (topbar bell) */
+.notif { position: relative; }
+.notifbell { position: relative; padding: 6px 10px; min-height: 32px; }
+.notifbadge {
+  position: absolute; top: -6px; right: -6px; background: var(--gold); color: #08130a;
+  border-radius: 8px; font-size: .68rem; font-weight: 700; padding: 1px 6px;
 }
-.reqitem { display: inline-flex; gap: 8px; align-items: center; }
+.notifpanel {
+  position: absolute; right: 0; top: calc(100% + 8px); width: min(340px, 88vw); z-index: 60;
+  background: var(--card); border: 1px solid var(--green); border-radius: 2px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.55);
+}
+.notifhead {
+  padding: 8px 14px; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--muted); border-bottom: 1px solid var(--line);
+}
+.notifempty { padding: 18px 14px; color: var(--muted); font-size: .85rem; }
+.notifitem { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: .85rem; }
+.notifitem:last-child { border-bottom: 0; }
 
 /* ---------- the Deck ---------- */
 .rail { display: flex; gap: 8px; flex-wrap: wrap; }

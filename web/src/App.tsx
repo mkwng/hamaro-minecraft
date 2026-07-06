@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, auth, type Status } from "./api";
 import { useInterval } from "./hooks";
 import AdminPanel from "./components/AdminPanel";
+import NotificationCenter from "./components/NotificationCenter";
 
 function StatusCard({ status, onStarted }: { status: Status | null; onStarted: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -213,6 +214,7 @@ export default function App() {
         <a href="#/" className={"navlink" + (route === "home" ? " active" : "")}>home</a>
         <a href="#/map" className={"navlink" + (route === "map" ? " active" : "")}>map</a>
         <a href="#/admin" className={"navlink" + (route === "admin" ? " active" : "")}>grown-ups</a>
+        <NotificationCenter />
       </nav>
       {route === "map" ? <MapPage status={status} /> : (
       <main className={route === "admin" ? "wide" : ""}>
