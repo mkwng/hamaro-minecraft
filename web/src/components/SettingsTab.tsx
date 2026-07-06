@@ -3,14 +3,17 @@ import { api, watchOp } from "../api";
 import { useAsync } from "../hooks";
 import { useOpStatus } from "./AdminPanel";
 
-export default function SettingsTab() {
+export default function SettingsTab({ profile: profileProp }: { profile?: string } = {}) {
   const flash = useOpStatus();
   const [profile, setProfile] = useState("");
+  const [active, setActive] = useState("");
   const [env, setEnv] = useState("");
   useAsync(async () => {
     const r = await api<{ active: string }>("/profiles");
-    setProfile(r.active);
-    setEnv((await api<{ env: string }>(`/profiles/${r.active}`)).env);
+    const p = profileProp || r.active;
+    setActive(r.active);
+    setProfile(p);
+    setEnv((await api<{ env: string }>(`/profiles/${p}`)).env);
   });
 
   const save = async (apply: boolean) => {
@@ -37,7 +40,9 @@ export default function SettingsTab() {
       <textarea rows={16} spellCheck={false} value={env} onChange={(e) => setEnv(e.target.value)} />
       <div className="row">
         <button onClick={() => save(false)}>Save</button>
-        <button onClick={() => save(true)}>Save + apply now (restarts server)</button>
+        {profile === active
+          ? <button onClick={() => save(true)}>Save + apply now (restarts server)</button>
+          : <span className="hint">applies when you switch to this world</span>}
       </div>
     </>
   );

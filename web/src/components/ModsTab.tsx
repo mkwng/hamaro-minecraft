@@ -14,9 +14,10 @@ function envSet(env: string, key: string, value: string) {
   return new RegExp(`^${key}=`, "m").test(env) ? env.replace(new RegExp(`^${key}=.*$`, "m"), line) : env + "\n" + line;
 }
 
-export default function ModsTab() {
+export default function ModsTab({ profile: profileProp }: { profile?: string } = {}) {
   const flash = useOpStatus();
   const [profile, setProfile] = useState("");
+  const [active, setActive] = useState("");
   const [env, setEnv] = useState("");
   const [installed, setInstalled] = useState<Project[]>([]);
   const [query, setQuery] = useState("");
@@ -30,8 +31,10 @@ export default function ModsTab() {
   useEffect(() => {
     (async () => {
       const r = await api<{ active: string }>("/profiles");
-      setProfile(r.active);
-      setEnv((await api<{ env: string }>(`/profiles/${r.active}`)).env);
+      const p = profileProp || r.active;
+      setActive(r.active);
+      setProfile(p);
+      setEnv((await api<{ env: string }>(`/profiles/${p}`)).env);
     })();
   }, []);
 
@@ -68,8 +71,9 @@ export default function ModsTab() {
   async function apply() {
     try {
       await api(`/profiles/${profile}`, { method: "PUT", body: JSON.stringify({ env }) });
-      const res = await api<any>(`/profiles/${profile}/activate`, { method: "POST", body: "{}" });
       setDirty(false);
+      if (profile !== active) { flash("✔ saved — installs when you switch to this world"); return; }
+      const res = await api<any>(`/profiles/${profile}/activate`, { method: "POST", body: "{}" });
       if (res.commandId) {
         flash("Applying mods (server restarting — modpack downloads add a few minutes)…");
         const r = await watchOp(res.commandId, (s) => flash(`Applying mods… (${s})`));

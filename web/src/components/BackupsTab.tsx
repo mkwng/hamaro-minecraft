@@ -3,9 +3,10 @@ import { api, watchOp, type BackupEntry } from "../api";
 import { useAsync } from "../hooks";
 import { useOpStatus } from "./AdminPanel";
 
-export default function BackupsTab() {
+export default function BackupsTab({ profile }: { profile?: string } = {}) {
   const flash = useOpStatus();
   const [data, reload] = useAsync(() => api<{ backups: BackupEntry[] }>("/backups"));
+  const backups = (data?.backups || []).filter((b) => !profile || b.key.startsWith(`backups/${profile}/`));
   const [selected, setSelected] = useState("");
   const [target, setTarget] = useState("");
 
@@ -23,9 +24,9 @@ export default function BackupsTab() {
         }}>Back up now</button>
       </div>
       <ul className="list">
-        {data?.backups.map((b) => (
+        {backups.map((b) => (
           <li key={b.key} className={selected === b.key ? "selected" : ""}
-            onClick={() => { setSelected(b.key); if (!target) setTarget(b.key.split("/")[1]); }}>
+            onClick={() => { setSelected(b.key); if (!target) setTarget(profile || b.key.split("/")[1]); }}>
             <code>{b.key.split("/").pop()}</code>
             <span className="spacer" />
             <span className="hint">{new Date(b.lastModified).toLocaleString()} · {(b.size / 1048576).toFixed(1)} MB</span>
