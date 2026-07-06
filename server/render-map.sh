@@ -37,13 +37,17 @@ render_dim() { # world-dir dimension out-subpath (empty for overworld)
   local OUT="/srv/minecraft/map${SUB:+/$SUB}"
   rm -rf "$OUT"
   "$BIN" web render --world="$WDIR" --dimension="$DIM" --output="$OUT" --zoomin=2 --zoomout=4 \
-    || { log "render failed for ${DIM}"; return 0; }
+    > /tmp/unmined-render.log 2>&1 \
+    || { log "render failed for ${DIM}: $(tail -3 /tmp/unmined-render.log | tr '\n' ' ')"; return 0; }
+  log "rendered ${DIM}"
   mv "$OUT"/unmined.index.html "$OUT"/index.html 2>/dev/null || true
-  sed -i "s#</head>#${FOG}</head>#" "$OUT/index.html" || true
+  # NB: '|' delimiter — the fog CSS contains '#' (hex colors), which as a sed
+  # delimiter silently breaks the substitution.
+  sed -i "s|</head>|${FOG}</head>|" "$OUT/index.html" || echo "[render-map] WARN fog inject failed"
   if [ -z "$SUB" ]; then # overworld gets markers + pinning
-    /opt/hamaro/gen-markers.sh > "$OUT/custom.markers.js" || true
+    /opt/hamaro/gen-markers.sh > "$OUT/custom.markers.js" || echo "[render-map] WARN gen-markers failed"
     cp /opt/hamaro/hamaro.map.js "$OUT/hamaro.map.js"
-    sed -i 's#</body>#<script src="hamaro.map.js"></script></body>#' "$OUT/index.html" || true
+    sed -i 's|</body>|<script src="hamaro.map.js"></script></body>|' "$OUT/index.html" || true
   fi
   aws s3 sync "$OUT" "s3://${SITE_BUCKET}/map${SUB:+/$SUB}/" --delete --no-progress \
     --exclude "nether/*" --exclude "end/*"
@@ -67,15 +71,15 @@ if [ -d "$DATA/world/region" ]; then
   KM2=$(python3 -c "print(round($REGIONS * 512 * 512 / 1e6, 2))")
   printf '{"regions": %s, "km2": %s, "updated": "%s"}\n' "$REGIONS" "$KM2" "$(date -u +%FT%TZ)" \
     | aws s3 cp - "s3://${SITE_BUCKET}/map/stats.json" \
-      --cache-control "no-cache" --content-type application/json || true
-  log "explored: ${REGIONS} regions (~${KM2} km2)"
+      --cache-control "no-cache" --content-type application/json \
+    && log "explored: ${REGIONS} regions (~${KM2} km2)" || log "WARN stats upload failed"
 fi
 
 # ---- monthly time-lapse snapshot (one per month, first render wins) ----
 MONTH=$(date -u +%Y-%m)
 if ! aws s3 ls "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" >/dev/null 2>&1; then
   if "$BIN" image render --world="$DATA/world" --dimension=overworld \
-      --output=/tmp/archive.png --zoomout=3; then
+      --output=/tmp/archive.png --zoomout=3 > /tmp/unmined-image.log 2>&1; then
     { aws s3 cp /tmp/archive.png "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" --no-progress \
       && aws s3 ls "s3://${SITE_BUCKET}/map-archive/" | awk '{print $NF}' | grep '\.png$' \
         | python3 -c "import json,sys; print(json.dumps(sorted(l.strip() for l in sys.stdin if l.strip())))" \
@@ -85,7 +89,7 @@ if ! aws s3 ls "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" >/dev/n
       || log "WARN archive upload failed"
     rm -f /tmp/archive.png
   else
-    log "WARN archive image render failed"
+    log "WARN archive image render failed: $(tail -3 /tmp/unmined-image.log | tr '\n' ' ')"
   fi
 fi
 

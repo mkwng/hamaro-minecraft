@@ -412,15 +412,18 @@ async function postGive(body) {
 }
 
 // Warps: named points per profile, stored next to the profile config in S3.
-async function warpsKey() { return `profiles/${await param("/hamaro/active-profile")}/warps.json`; }
-async function readWarps() {
+async function warpsKey(profile) {
+  const p = PROFILE_RE.test(profile || "") ? profile : await param("/hamaro/active-profile");
+  return `profiles/${p}/warps.json`;
+}
+async function readWarps(profile) {
   try {
-    const r = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: await warpsKey() }));
+    const r = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: await warpsKey(profile) }));
     return JSON.parse(await r.Body.transformToString());
   } catch { return {}; }
 }
 
-async function getWarps() { return reply(200, { warps: await readWarps() }); }
+async function getWarps(query) { return reply(200, { warps: await readWarps(query?.profile) }); }
 
 const WARP_TYPES = ["pin", "home", "farm", "portal", "danger", "star"];
 
@@ -443,16 +446,16 @@ async function postWarp(body) {
   } else {
     return reply(400, { error: "give a player to snapshot, or x/y/z coordinates" });
   }
-  const warps = await readWarps();
+  const warps = await readWarps(body?.profile);
   warps[name] = { ...point, type };
-  await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: await warpsKey(), Body: JSON.stringify(warps, null, 2), ContentType: "application/json" }));
+  await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: await warpsKey(body?.profile), Body: JSON.stringify(warps, null, 2), ContentType: "application/json" }));
   return reply(200, { warps });
 }
 
-async function deleteWarp(name) {
-  const warps = await readWarps();
+async function deleteWarp(name, query) {
+  const warps = await readWarps(query?.profile);
   delete warps[name];
-  await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: await warpsKey(), Body: JSON.stringify(warps, null, 2), ContentType: "application/json" }));
+  await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: await warpsKey(query?.profile), Body: JSON.stringify(warps, null, 2), ContentType: "application/json" }));
   return reply(200, { warps });
 }
 
@@ -739,7 +742,7 @@ export async function handler(event) {
     if (method === "POST" && path === "/players/whitelist") return await postPlayerRole(body, "whitelist");
     if (method === "POST" && path === "/players/op") return await postPlayerRole(body, "op");
     if (method === "POST" && path === "/give") return await postGive(body);
-    if (method === "GET" && path === "/warps") return await getWarps();
+    if (method === "GET" && path === "/warps") return await getWarps(event.queryStringParameters);
     if (method === "POST" && path === "/warps") return await postWarp(body);
     if (method === "POST" && path === "/tp") return await postTp(body);
     if (method === "POST" && path === "/map/render") { await requireRunning(); return reply(202, { commandId: await runCommand("/opt/hamaro/render-map.sh") }); }
@@ -752,7 +755,7 @@ export async function handler(event) {
       if (method === "DELETE") return await deleteRecipe(m[1]);
       if (method === "POST") return await runRecipe(m[1], body, who);
     }
-    if ((m = path.match(/^\/warps\/([a-z0-9][a-z0-9-_ ]{0,30})$/i)) && method === "DELETE") return await deleteWarp(m[1]);
+    if ((m = path.match(/^\/warps\/([a-z0-9][a-z0-9-_ ]{0,30})$/i)) && method === "DELETE") return await deleteWarp(m[1], event.queryStringParameters);
     if ((m = path.match(/^\/players\/([A-Za-z0-9_]{1,16})\/inventory$/)) && method === "GET") return await getInventory(m[1]);
     if ((m = path.match(/^\/profiles\/([^/]+)$/)) && PROFILE_RE.test(m[1])) {
       if (method === "GET") return await getProfile(m[1]);
