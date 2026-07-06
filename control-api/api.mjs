@@ -295,7 +295,8 @@ async function postCommand(body) {
 
 async function postBackup() {
   await requireRunning();
-  return reply(202, { commandId: await runCommand("/opt/hamaro/backup.sh") });
+  // The admin button is an explicit ask — bypass the players-since-last-backup skip.
+  return reply(202, { commandId: await runCommand("/opt/hamaro/backup.sh --force") });
 }
 
 async function listBackups() {

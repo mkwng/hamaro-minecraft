@@ -1,8 +1,10 @@
 # RESTORE — getting a world back
 
-Backups are plain `.tar.gz` files in `s3://hamaro-minecraft-<acct>/backups/<profile>/`,
-taken automatically on every auto-sleep, every 2 h while running, and before every
-world switch / settings apply. Older ones migrate to cheaper storage tiers
+Backups are plain `.tar.gz` files in `s3://hamaro-minecraft-<acct>/backups/<profile>/`.
+Automatic backups run at auto-sleep, every 2 h during play, and before world
+switches — but only when someone has actually played since the last backup, and
+only the newest backup per profile per day is kept (the admin "Back up now"
+button bypasses both rules). Older ones migrate to cheaper storage tiers
 (after ~4 months they're in Deep Archive — restores from there need a
 [12-hour S3 retrieval](https://docs.aws.amazon.com/AmazonS3/latest/userguide/restoring-objects.html) first).
 

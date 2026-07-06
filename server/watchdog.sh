@@ -27,6 +27,7 @@ elif [ "$PLAYERS" -eq 0 ]; then
   IDLE=$((IDLE + 1))
 else
   IDLE=0
+  touch /srv/minecraft/dirty   # someone is playing — world worth backing up
 fi
 echo "$IDLE" > "$IDLE_FILE"
 
