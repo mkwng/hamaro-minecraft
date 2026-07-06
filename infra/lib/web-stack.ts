@@ -33,11 +33,24 @@ export class WebStack extends Stack {
       autoDeleteObjects: true,
     });
 
+    const origin = origins.S3BucketOrigin.withOriginAccessControl(siteBucket);
+    // Live-updating map data must never be edge-cached (the game rewrites these
+    // between invalidations: player markers each minute, stats each render).
+    const noCache = {
+      origin,
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+    };
     const dist = new cloudfront.Distribution(this, "SiteDist", {
       defaultBehavior: {
-        origin: origins.S3BucketOrigin.withOriginAccessControl(siteBucket),
+        origin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+      },
+      additionalBehaviors: {
+        "/map/custom.markers.js": noCache,
+        "/map/stats.json": noCache,
+        "/map-archive/index.json": noCache,
       },
       defaultRootObject: "index.html",
       domainNames: [C.webDomain],
