@@ -66,7 +66,7 @@ if pf and os.path.exists(pf):
 
 # World spawn: parse SpawnX/SpawnZ from level.dat (gzipped NBT — the int tag
 # payload sits right after the tag name). Centers the map + adds a compass pin.
-import gzip, struct
+import gzip, struct, re as _re
 sx = sz = None
 lvl = os.environ.get("LEVEL_DAT", "")
 try:
@@ -75,6 +75,19 @@ try:
         i = raw.find(key.encode())
         return struct.unpack(">i", raw[i + len(key):i + len(key) + 4])[0] if i >= 0 else None
     sx, sz = nbt_int("SpawnX"), nbt_int("SpawnZ")
+    if sx is None:
+        # Newer worlds store spawn as an int-array "SpawnPos" [x, y, z].
+        for key in (b"SpawnPos", b"spawn_pos"):
+            i = raw.find(key)
+            if i >= 0:
+                n = struct.unpack(">i", raw[i + len(key):i + len(key) + 4])[0]
+                if 0 < n <= 3:
+                    vals = struct.unpack(f">{n}i", raw[i + len(key) + 4:i + len(key) + 4 + 4 * n])
+                    sx, sz = vals[0], vals[-1]
+                break
+    if sx is None:
+        keys = sorted(set(m.decode() for m in _re.findall(rb"[A-Za-z_]*[Ss]pawn[A-Za-z_]*", raw)))
+        print(f"[gen-markers] no known spawn tag; spawn-ish keys present: {keys[:12]}", file=sys.stderr)
 except Exception as ex:
     print(f"[gen-markers] level.dat parse failed ({lvl}): {ex}", file=sys.stderr)
 if sx is not None and sz is not None:

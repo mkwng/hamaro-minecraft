@@ -49,7 +49,7 @@ render_dim() { # world-dir dimension out-subpath (empty for overworld)
     cp /opt/hamaro/hamaro.map.js "$OUT/hamaro.map.js"
     sed -i 's|</body>|<script src="hamaro.map.js"></script></body>|' "$OUT/index.html" || true
   fi
-  aws s3 sync "$OUT" "s3://${SITE_BUCKET}/map${SUB:+/$SUB}/" --delete --no-progress \
+  aws s3 sync "$OUT" "s3://${SITE_BUCKET}/map${SUB:+/$SUB}/" --delete --only-show-errors \
     --exclude "nether/*" --exclude "end/*"
 }
 
@@ -62,7 +62,7 @@ render_dim "$DATA/world_the_end" end end
 # custom.markers.js must never be CDN-cached (it goes stale within a minute).
 if [ -f /srv/minecraft/map/custom.markers.js ]; then
   aws s3 cp /srv/minecraft/map/custom.markers.js "s3://${SITE_BUCKET}/map/custom.markers.js" \
-    --cache-control "no-cache, no-store" --content-type "application/javascript" --no-progress || true
+    --cache-control "no-cache, no-store" --content-type "application/javascript" --only-show-errors || true
 fi
 
 # ---- exploration stats (straight from the region files on disk) ----
@@ -80,7 +80,7 @@ MONTH=$(date -u +%Y-%m)
 if ! aws s3 ls "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" >/dev/null 2>&1; then
   if "$BIN" image render --world="$DATA/world" --dimension=overworld \
       --output=/tmp/archive.png --zoomout=3 > /tmp/unmined-image.log 2>&1; then
-    { aws s3 cp /tmp/archive.png "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" --no-progress \
+    { aws s3 cp /tmp/archive.png "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" --only-show-errors \
       && aws s3 ls "s3://${SITE_BUCKET}/map-archive/" | awk '{print $NF}' | grep '\.png$' \
         | python3 -c "import json,sys; print(json.dumps(sorted(l.strip() for l in sys.stdin if l.strip())))" \
         | aws s3 cp - "s3://${SITE_BUCKET}/map-archive/index.json" \
