@@ -210,10 +210,9 @@ export default function App() {
       <nav className="topbar">
         <a href="#/" className="brand">HAMAR<span className="accent">0</span>×MC</a>
         <span className="spacer" />
+        <a href="#/" className={"navlink" + (route === "home" ? " active" : "")}>home</a>
         <a href="#/map" className={"navlink" + (route === "map" ? " active" : "")}>map</a>
-        {route === "home"
-          ? <a href="#/admin" className="navlink">grown-ups →</a>
-          : <a href="#/" className="navlink">← home</a>}
+        <a href="#/admin" className={"navlink" + (route === "admin" ? " active" : "")}>grown-ups</a>
       </nav>
       {route === "map" ? <MapPage status={status} /> : (
       <main className={route === "admin" ? "wide" : ""}>
