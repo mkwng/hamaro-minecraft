@@ -65,12 +65,11 @@ if [ -f /srv/minecraft/map/custom.markers.js ]; then
     --cache-control "no-cache, no-store" --content-type "application/javascript" --only-show-errors || true
 fi
 
-# ---- exploration stats (straight from the region files on disk) ----
-if [ ! -d "$DATA/world/region" ]; then
-  log "WARN no region dir; world contains: $(ls "$DATA/world" 2>/dev/null | head -12 | tr '\n' ' ')"
-fi
-if [ -d "$DATA/world/region" ]; then
-  REGIONS=$(ls "$DATA/world/region"/*.mca 2>/dev/null | wc -l | xargs)
+# ---- exploration stats: find the overworld region dir wherever this MC
+# version keeps it (26.x moved it under dimensions/) ----
+REGION_DIR=$(find "$DATA/world" -type d -name region 2>/dev/null | grep -v -E "nether|end" | head -1)
+if [ -n "$REGION_DIR" ]; then
+  REGIONS=$(ls "$REGION_DIR"/*.mca 2>/dev/null | wc -l | xargs)
   KM2=$(python3 -c "print(round($REGIONS * 512 * 512 / 1e6, 2))")
   printf '{"regions": %s, "km2": %s, "updated": "%s"}\n' "$REGIONS" "$KM2" "$(date -u +%FT%TZ)" \
     | aws s3 cp - "s3://${SITE_BUCKET}/map/stats.json" \
