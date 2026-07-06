@@ -8,7 +8,8 @@ export type Status = {
   activeProfile: string;
 };
 export type OnlinePlayer = { name: string; x?: number; y?: number; z?: number; dimension?: string };
-export type Warp = { x: number; y: number; z: number; dimension: string };
+export type Warp = { x: number; y: number; z: number; dimension: string; type?: string };
+export const WARP_GLYPHS: Record<string, string> = { pin: "📍", home: "🏠", farm: "🌾", portal: "🌀", danger: "☠️", star: "⭐" };
 export type JoinRequest = { username: string; email: string; at: string };
 export type BackupEntry = { key: string; size: number; lastModified: string };
 export type InvItem = { slot: number; item: string; count: number };

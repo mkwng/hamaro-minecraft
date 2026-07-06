@@ -14,18 +14,35 @@ export AVATARS=$(aws s3 ls "s3://${SITE_BUCKET}/avatars/" 2>/dev/null | awk '{pr
 python3 - "${1:-}" <<'PY'
 import json, os, sys
 
+GLYPHS = {"pin": "📍", "home": "🏠", "farm": "🌾", "portal": "🌀", "danger": "☠️", "star": "⭐"}
+COLORS = {"danger": "#ef6f6c", "star": "#f5cf65"}
+
 markers = []
 try: warps = json.loads(os.environ.get("WARPS_JSON") or "{}")
 except Exception: warps = {}
 for name, w in sorted(warps.items()):
     if "overworld" not in w.get("dimension", "minecraft:overworld"):
         continue  # the rendered map is the overworld
+    t = w.get("type", "pin")
     markers.append({
         "x": w["x"], "z": w["z"],
-        "image": "custom.pin.png", "imageAnchor": [0.5, 1], "imageScale": 0.5,
-        "text": name, "textColor": "#5ac2c9", "offsetY": 14,
+        "text": f"{GLYPHS.get(t, GLYPHS['pin'])} {name}",
+        "textColor": COLORS.get(t, "#5ac2c9"),
         "font": "bold 14px ui-monospace, monospace",
     })
+
+# Recent deaths (written by the watchdog; pins fade out after an hour).
+import time
+try:
+    deaths = json.load(open("/srv/minecraft/deaths.json"))
+except Exception:
+    deaths = []
+for d in deaths:
+    if time.time() - d.get("ts", 0) < 3600:
+        markers.append({
+            "x": d["x"], "z": d["z"], "text": "☠ " + d["player"],
+            "textColor": "#ef6f6c", "font": "bold 13px ui-monospace, monospace",
+        })
 
 avatars = set((os.environ.get("AVATARS") or "").split())
 pf = sys.argv[1]

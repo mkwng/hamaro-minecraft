@@ -130,6 +130,51 @@ function Login() {
   );
 }
 
+function MapPage({ status }: { status: Status | null }) {
+  const [dim, setDim] = useState<"" | "nether" | "end">("");
+  const [dims, setDims] = useState<string[]>([""]);
+  const [stats, setStats] = useState<{ km2: number } | null>(null);
+  const [archive, setArchive] = useState<string[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const found = [""];
+      for (const d of ["nether", "end"]) {
+        try { if ((await fetch(`/map/${d}/index.html`, { method: "HEAD" })).ok) found.push(d); } catch {}
+      }
+      setDims(found);
+      try { setStats(await (await fetch("/map/stats.json", { cache: "no-store" })).json()); } catch {}
+      try { setArchive(await (await fetch("/map-archive/index.json", { cache: "no-store" })).json()); } catch {}
+    })();
+  }, []);
+
+  const n = status?.server?.state === "running" ? status.server.players ?? 0 : 0;
+  return (
+    <div className="mapwrap">
+      {dims.length > 1 && (
+        <div className="dimtabs">
+          {dims.map((d) => (
+            <button key={d} className={"tab" + (dim === d ? " active" : "")} onClick={() => setDim(d as any)}>
+              {d === "" ? "overworld" : d}
+            </button>
+          ))}
+        </div>
+      )}
+      <iframe src={`/map/${dim ? dim + "/" : ""}index.html`} title="world map" />
+      <p className="maphint">
+        {n > 0 ? `🟢 ${n} playing now — heads on the map are live · ` : ""}
+        {stats ? `explored ${stats.km2} km² · ` : ""}
+        shift+click to pin (grown-ups)
+        {archive.length > 0 && <> · history:{" "}
+          {archive.map((a) => (
+            <a key={a} href={`/map-archive/${a}`} target="_blank" rel="noopener">{a.replace(/^.*-(\d{4}-\d{2})\.png$/, "$1")}</a>
+          )).reduce((acc: any[], el, i) => (i ? [...acc, " ", el] : [el]), [])}
+        </>}
+      </p>
+    </div>
+  );
+}
+
 const getRoute = () =>
   location.hash.startsWith("#/admin") ? "admin" : location.hash.startsWith("#/map") ? "map" : "home";
 
@@ -170,16 +215,7 @@ export default function App() {
           ? <a href="#/admin" className="navlink">grown-ups →</a>
           : <a href="#/" className="navlink">← home</a>}
       </nav>
-      {route === "map" ? (
-        <div className="mapwrap">
-          <iframe src="/map/index.html" title="world map" />
-          <p className="maphint">
-            {status?.server?.state === "running" && (status.server.players ?? 0) > 0
-              ? `🟢 ${status.server.players} playing now — gold names on the map are live positions`
-              : "the map fills in as new places get explored · updates after every play session"}
-          </p>
-        </div>
-      ) : (
+      {route === "map" ? <MapPage status={status} /> : (
       <main className={route === "admin" ? "wide" : ""}>
         {route === "home" ? (
           <>

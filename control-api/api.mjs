@@ -400,8 +400,11 @@ async function readWarps() {
 
 async function getWarps() { return reply(200, { warps: await readWarps() }); }
 
+const WARP_TYPES = ["pin", "home", "farm", "portal", "danger", "star"];
+
 async function postWarp(body) {
   const { name, player, x, y, z, dimension } = body || {};
+  const type = WARP_TYPES.includes(body?.type) ? body.type : "pin";
   if (!/^[a-z0-9][a-z0-9-_ ]{0,30}$/i.test(name || "")) return reply(400, { error: "warp name required" });
   let point;
   if (NAME_RE.test(player || "")) {
@@ -419,7 +422,7 @@ async function postWarp(body) {
     return reply(400, { error: "give a player to snapshot, or x/y/z coordinates" });
   }
   const warps = await readWarps();
-  warps[name] = point;
+  warps[name] = { ...point, type };
   await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: await warpsKey(), Body: JSON.stringify(warps, null, 2), ContentType: "application/json" }));
   return reply(200, { warps });
 }

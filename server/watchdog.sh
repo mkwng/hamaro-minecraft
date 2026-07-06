@@ -52,6 +52,30 @@ if [ -n "$PLAYERS" ] && [ "$PLAYERS" -gt 0 ] 2>/dev/null; then
     fi
   done
 fi
+# Death pins: scan the last log window for death messages, resolve each
+# player's LastDeathLocation, keep pins for an hour (rendered by gen-markers).
+if [ "$STATE" = "running" ]; then
+  DEAD=$(docker logs hamaro-mc --since 75s 2>&1 \
+    | grep -oE 'INFO\]: [A-Za-z0-9_]{1,16} (was |died|drowned|blew up|fell |burned|went up in flames|hit the ground|suffocated|starved|withered|walked into|tried to swim in lava|experienced|froze|left the game and)' \
+    | sed 's/INFO\]: //; s/ .*//' | sort -u | grep -vE 'left$' || true)
+  for P in $DEAD; do
+    LOC=$(docker exec hamaro-mc rcon-cli data get entity $P LastDeathLocation 2>/dev/null || true)
+    XYZ=$(echo "$LOC" | grep -oE '\[I; *-?[0-9]+, *-?[0-9]+, *-?[0-9]+\]' | tr -cd '0-9,-' )
+    [ -n "$XYZ" ] && P="$P" XYZ="$XYZ" python3 - <<'PY'
+import json, os, time
+f = "/srv/minecraft/deaths.json"
+try: deaths = json.load(open(f))
+except Exception: deaths = []
+x, y, z = [int(v) for v in os.environ["XYZ"].split(",")[:3]]
+p = os.environ["P"]
+deaths = [d for d in deaths if time.time() - d.get("ts", 0) < 3600
+          and not (d["player"] == p and d["x"] == x and d["z"] == z)]
+deaths.append({"player": p, "x": x, "z": z, "ts": int(time.time())})
+json.dump(deaths[-30:], open(f, "w"))
+PY
+  done
+fi
+
 if /opt/hamaro/gen-markers.sh /tmp/hamaro-players.txt > /tmp/custom.markers.js 2>/dev/null; then
   aws s3 cp /tmp/custom.markers.js "s3://${SITE_BUCKET}/map/custom.markers.js" \
     --cache-control "no-cache, no-store" --content-type "application/javascript" >/dev/null 2>&1 || true

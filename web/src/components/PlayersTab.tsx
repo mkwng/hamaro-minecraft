@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, watchOp, type OnlinePlayer, type Warp, type InvItem } from "../api";
+import { api, WARP_GLYPHS, type OnlinePlayer, type Warp, type InvItem } from "../api";
 import { useAsync, useInterval } from "../hooks";
 import { useOpStatus } from "./AdminPanel";
 
@@ -99,7 +99,7 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
   const flash = useOpStatus();
   const [wl, setWl] = useState<string[] | null>(null);
   const [ops, setOps] = useState<string[] | null>(null);
-  const [wn, setWn] = useState({ name: "", x: "", y: "", z: "" });
+  const [wn, setWn] = useState({ name: "", x: "", y: "", z: "", type: "pin" });
 
   const loadRoles = async () => {
     const r = await api<{ active: string }>("/profiles");
@@ -120,11 +120,12 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
         online.length === 0 ? <p className="hint">(nobody on right now)</p> :
         online.map((p) => <PlayerCard key={p.name} p={p} warps={warps} onWarpsChanged={reloadWarps} />)}
 
-      <h3>Warps (saved points)</h3>
+      <h3>Warps & pins (shown on the world map)</h3>
       <ul className="list">
         {Object.entries(warps).map(([name, w]) => (
           <li key={name}>
-            <b>{name}</b> <span className="hint">{w.dimension.replace("minecraft:", "")} · {w.x}, {w.y}, {w.z}</span>
+            <b>{WARP_GLYPHS[w.type || "pin"]} {name}</b>
+            <span className="hint">{w.dimension.replace("minecraft:", "")} · {w.x}, {w.y}, {w.z}</span>
             <span className="spacer" />
             <button onClick={async () => { await api(`/warps/${encodeURIComponent(name)}`, { method: "DELETE" }); reloadWarps(); }}>Delete</button>
           </li>
@@ -135,12 +136,15 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
         {(["x", "y", "z"] as const).map((k) => (
           <input key={k} className="short" placeholder={k} inputMode="numeric" value={wn[k]} onChange={(e) => setWn({ ...wn, [k]: e.target.value })} />
         ))}
+        <select value={wn.type} onChange={(e) => setWn({ ...wn, type: e.target.value })}>
+          {Object.entries(WARP_GLYPHS).map(([t, g]) => <option key={t} value={t}>{g} {t}</option>)}
+        </select>
         <button onClick={async () => {
-          try { await api("/warps", { method: "POST", body: JSON.stringify(wn) }); setWn({ name: "", x: "", y: "", z: "" }); reloadWarps(); }
+          try { await api("/warps", { method: "POST", body: JSON.stringify(wn) }); setWn({ name: "", x: "", y: "", z: "", type: "pin" }); reloadWarps(); }
           catch (e: any) { flash("✖ " + e.message); }
         }}>Add by coords</button>
       </div>
-      <p className="hint">Tip: easier to use "Save spot as warp" next to an online player.</p>
+      <p className="hint">Tip: "Save spot as warp" next to an online player, or shift+click the world map.</p>
 
       {wl && <RoleList title="Whitelist" subtitle="instant — no restart needed" role="whitelist" names={wl} onChange={setWl} />}
       {ops && <RoleList title="Ops (admins in game)" role="op" names={ops} onChange={setOps} />}

@@ -58,6 +58,8 @@ main.wide { max-width: 880px; }
 
 /* full-bleed embedded map */
 .mapwrap { display: flex; flex-direction: column; height: calc(100dvh - 53px); }
+.dimtabs { display: flex; gap: 4px; padding: 6px 12px 0; background: var(--bg); }
+.maphint a { color: var(--cyan); }
 .mapwrap iframe { flex: 1; border: 0; width: 100%; background: #000; }
 .maphint {
   margin: 0; padding: 8px 16px; font-size: .75rem; color: var(--muted);

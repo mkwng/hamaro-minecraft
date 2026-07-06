@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Renders a top-down terrain web map of the active world with uNmINeD and
-# publishes it to the website at https://<web-domain>/map/ (public, static).
+# Renders the public terrain maps (overworld + nether/end when visited) with
+# uNmINeD and publishes them to the website: /map/, /map/nether/, /map/end/.
+# Also: exploration stats (/map/stats.json), a monthly time-lapse snapshot
+# (/map-archive/YYYY-MM.png + index.json), fog-of-war styling, live-marker
+# refresh, and shift+click pinning (hamaro.map.js).
 # Runs after every goodnight backup and on demand from the admin panel.
-#
-# Mirror-once pattern (like the ECR image): the unmined-cli binary is fetched
-# from unmined.net a single time, then stashed in our S3 bucket so future
-# instance rebuilds never depend on a third-party site being up.
 set -euo pipefail
 source /etc/hamaro/env
 source /srv/minecraft/runtime.env
 log() { echo "[render-map] $*"; }
 
+# ---- unmined-cli: mirror-once install (see tools/ in the data bucket) ----
 UNMINED_DIR=/opt/unmined
 BIN="${UNMINED_DIR}/unmined-cli"
 if [ ! -x "$BIN" ]; then
@@ -27,35 +27,66 @@ if [ ! -x "$BIN" ]; then
   rm -f /tmp/unmined.tar.gz
   chmod +x "$BIN"
 fi
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1  # AL2023 has no ICU libs
 
-WORLD="${PROFILE_DIR}/data/world"
-[ -d "$WORLD" ] || { log "no world directory at $WORLD"; exit 1; }
-
-OUT=/srv/minecraft/map
-rm -rf "$OUT"
-# AL2023 ships no ICU libs; .NET needs invariant globalization mode to run.
-export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
-"$BIN" web render --world="$WORLD" --output="$OUT" --zoomin=2 --zoomout=4
-mv "$OUT"/unmined.index.html "$OUT"/index.html 2>/dev/null || true
-
-# The generated viewer already loads custom.markers.js; bake warp landmarks +
-# the dark "fog of war" background into it now (the watchdog refreshes the same
-# file with live player positions every minute while the server runs).
-/opt/hamaro/gen-markers.sh > "$OUT/custom.markers.js" || true
-
-# Page-level fog styling + a 45s marker auto-refresh loop so live positions
-# update without reloading the map.
 FOG='<style>html,body{background:#0c0e0b!important}body{background-image:repeating-linear-gradient(0deg,rgba(72,213,151,.022) 0 2px,transparent 2px 8px),repeating-linear-gradient(90deg,rgba(125,138,114,.03) 0 2px,transparent 2px 10px)!important}canvas,img{image-rendering:pixelated}</style>'
-REFRESH='<script>setInterval(async()=>{try{if(typeof unmined==="undefined"||!unmined.olMap)return;const t=await(await fetch("custom.markers.js?t="+Date.now(),{cache:"no-store"})).text();(0,eval)(t);const m=(typeof UnminedCustomMarkers!=="undefined"&&UnminedCustomMarkers.isEnabled&&UnminedCustomMarkers.markers)||[];if(unmined.markersLayer)unmined.olMap.removeLayer(unmined.markersLayer);unmined.markersLayer=unmined.createMarkersLayer(m);unmined.olMap.addLayer(unmined.markersLayer);}catch(e){}},45000)</script>'
-sed -i "s#</head>#${FOG}</head>#" "$OUT/index.html" || true
-sed -i "s#</body>#${REFRESH}</body>#" "$OUT/index.html" || true
 
-aws s3 sync "$OUT" "s3://${SITE_BUCKET}/map/" --delete --no-progress
-# The synced copy of custom.markers.js must never be CDN-cached (it goes live-
-# stale within a minute); re-put it with explicit no-cache metadata.
-aws s3 cp "$OUT/custom.markers.js" "s3://${SITE_BUCKET}/map/custom.markers.js" \
-  --cache-control "no-cache, no-store" --content-type "application/javascript" --no-progress || true
+render_dim() { # world-dir dimension out-subpath (empty for overworld)
+  local WDIR=$1 DIM=$2 SUB=$3
+  [ -d "$WDIR" ] || { log "no ${DIM} world yet — skipping"; return 0; }
+  local OUT="/srv/minecraft/map${SUB:+/$SUB}"
+  rm -rf "$OUT"
+  "$BIN" web render --world="$WDIR" --dimension="$DIM" --output="$OUT" --zoomin=2 --zoomout=4 \
+    || { log "render failed for ${DIM}"; return 0; }
+  mv "$OUT"/unmined.index.html "$OUT"/index.html 2>/dev/null || true
+  sed -i "s#</head>#${FOG}</head>#" "$OUT/index.html" || true
+  if [ -z "$SUB" ]; then # overworld gets markers + pinning
+    /opt/hamaro/gen-markers.sh > "$OUT/custom.markers.js" || true
+    cp /opt/hamaro/hamaro.map.js "$OUT/hamaro.map.js"
+    sed -i 's#</body>#<script src="hamaro.map.js"></script></body>#' "$OUT/index.html" || true
+  fi
+  aws s3 sync "$OUT" "s3://${SITE_BUCKET}/map${SUB:+/$SUB}/" --delete --no-progress \
+    --exclude "nether/*" --exclude "end/*"
+}
+
+DATA="${PROFILE_DIR}/data"
+rm -rf /srv/minecraft/map
+render_dim "$DATA/world" overworld ""
+render_dim "$DATA/world_nether" nether nether
+render_dim "$DATA/world_the_end" end end
+
+# custom.markers.js must never be CDN-cached (it goes stale within a minute).
+if [ -f /srv/minecraft/map/custom.markers.js ]; then
+  aws s3 cp /srv/minecraft/map/custom.markers.js "s3://${SITE_BUCKET}/map/custom.markers.js" \
+    --cache-control "no-cache, no-store" --content-type "application/javascript" --no-progress || true
+fi
+
+# ---- exploration stats (straight from the region files on disk) ----
+if [ -d "$DATA/world/region" ]; then
+  REGIONS=$(ls "$DATA/world/region"/*.mca 2>/dev/null | wc -l | xargs)
+  KM2=$(python3 -c "print(round($REGIONS * 512 * 512 / 1e6, 2))")
+  printf '{"regions": %s, "km2": %s, "updated": "%s"}\n' "$REGIONS" "$KM2" "$(date -u +%FT%TZ)" \
+    | aws s3 cp - "s3://${SITE_BUCKET}/map/stats.json" \
+      --cache-control "no-cache" --content-type application/json || true
+  log "explored: ${REGIONS} regions (~${KM2} km2)"
+fi
+
+# ---- monthly time-lapse snapshot (one per month, first render wins) ----
+MONTH=$(date -u +%Y-%m)
+if ! aws s3 ls "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" >/dev/null 2>&1; then
+  if "$BIN" image render --world="$DATA/world" --dimension=overworld \
+      --output=/tmp/archive.png --zoomout=3 2>/dev/null; then
+    aws s3 cp /tmp/archive.png "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" --no-progress
+    aws s3 ls "s3://${SITE_BUCKET}/map-archive/" | awk '{print $NF}' | grep '\.png$' \
+      | python3 -c "import json,sys; print(json.dumps(sorted(l.strip() for l in sys.stdin if l.strip())))" \
+      | aws s3 cp - "s3://${SITE_BUCKET}/map-archive/index.json" \
+        --cache-control "no-cache" --content-type application/json || true
+    rm -f /tmp/archive.png
+    log "archived time-lapse snapshot ${PROFILE}-${MONTH}"
+  fi
+fi
+
 if [ -n "${SITE_DISTRIBUTION_ID:-}" ]; then
   aws cloudfront create-invalidation --distribution-id "$SITE_DISTRIBUTION_ID" --paths "/map/*" >/dev/null || true
 fi
-log "map published for profile=${PROFILE}"
+log "maps published for profile=${PROFILE}"
