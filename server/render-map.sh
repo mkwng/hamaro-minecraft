@@ -66,6 +66,9 @@ if [ -f /srv/minecraft/map/custom.markers.js ]; then
 fi
 
 # ---- exploration stats (straight from the region files on disk) ----
+if [ ! -d "$DATA/world/region" ]; then
+  log "WARN no region dir; world contains: $(ls "$DATA/world" 2>/dev/null | head -12 | tr '\n' ' ')"
+fi
 if [ -d "$DATA/world/region" ]; then
   REGIONS=$(ls "$DATA/world/region"/*.mca 2>/dev/null | wc -l | xargs)
   KM2=$(python3 -c "print(round($REGIONS * 512 * 512 / 1e6, 2))")
@@ -79,7 +82,9 @@ fi
 MONTH=$(date -u +%Y-%m)
 if ! aws s3 ls "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" >/dev/null 2>&1; then
   if "$BIN" image render --world="$DATA/world" --dimension=overworld \
-      --output=/tmp/archive.png --zoomout=3 > /tmp/unmined-image.log 2>&1; then
+      --output=/tmp/archive.png --zoom=-2 > /tmp/unmined-image.log 2>&1 \
+     || "$BIN" image render --world="$DATA/world" --dimension=overworld \
+      --output=/tmp/archive.png > /tmp/unmined-image.log 2>&1; then
     { aws s3 cp /tmp/archive.png "s3://${SITE_BUCKET}/map-archive/${PROFILE}-${MONTH}.png" --only-show-errors \
       && aws s3 ls "s3://${SITE_BUCKET}/map-archive/" | awk '{print $NF}' | grep '\.png$' \
         | python3 -c "import json,sys; print(json.dumps(sorted(l.strip() for l in sys.stdin if l.strip())))" \

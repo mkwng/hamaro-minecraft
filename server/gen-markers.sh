@@ -86,6 +86,22 @@ try:
                     sx, sz = vals[0], vals[-1]
                 break
     if sx is None:
+        # 26.x: a lowercase "spawn" compound holding pos as an int-array (or x/z ints).
+        i = raw.find(b"\x0a\x00\x05spawn")
+        if i >= 0:
+            window = raw[i:i + 300]
+            j = window.find(b"pos")
+            if j >= 0 and window[j - 3] == 0x0b:  # TAG_Int_Array named "pos"
+                n = struct.unpack(">i", window[j + 3:j + 7])[0]
+                if 0 < n <= 3:
+                    vals = struct.unpack(f">{n}i", window[j + 7:j + 7 + 4 * n])
+                    sx, sz = vals[0], vals[-1]
+            if sx is None:  # or plain int tags x/z inside the compound
+                def cint(name):
+                    k = window.find(b"\x03" + struct.pack(">h", len(name)) + name)
+                    return struct.unpack(">i", window[k + 3 + len(name):k + 7 + len(name)])[0] if k >= 0 else None
+                sx, sz = cint(b"x"), cint(b"z")
+    if sx is None:
         keys = sorted(set(m.decode() for m in _re.findall(rb"[A-Za-z_]*[Ss]pawn[A-Za-z_]*", raw)))
         print(f"[gen-markers] no known spawn tag; spawn-ish keys present: {keys[:12]}", file=sys.stderr)
 except Exception as ex:
