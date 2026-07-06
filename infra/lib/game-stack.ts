@@ -346,6 +346,29 @@ EOF`,
       targets: [new events_targets.LambdaFunction(reaperFn)],
     });
 
+    // ---------- scheduler: recurring recipes (daily gifts etc.) ----------
+    const schedulerFn = new lambda.Function(this, "SchedulerFn", {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "scheduler.handler",
+      code: lambda.Code.fromAsset("../control-api"),
+      timeout: Duration.seconds(60),
+      logGroup: new logs.LogGroup(this, "SchedulerLogs", { retention: logs.RetentionDays.ONE_MONTH }),
+      environment: { INSTANCE_ID: instance.instanceId, BUCKET: bucket.bucketName },
+    });
+    bucket.grantReadWrite(schedulerFn);
+    schedulerFn.addToRolePolicy(new iam.PolicyStatement({ actions: ["ec2:DescribeInstances"], resources: ["*"] }));
+    schedulerFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["ssm:SendCommand"],
+      resources: [
+        `arn:aws:ssm:${this.region}::document/AWS-RunShellScript`,
+        `arn:aws:ec2:${this.region}:${this.account}:instance/${instance.instanceId}`,
+      ],
+    }));
+    new events.Rule(this, "SchedulerSchedule", {
+      schedule: events.Schedule.rate(Duration.minutes(15)),
+      targets: [new events_targets.LambdaFunction(schedulerFn)],
+    });
+
     // ---------- weekly EBS snapshots (belt-and-braces behind S3 backups) ----------
     const dlmRole = new iam.Role(this, "DlmRole", {
       assumedBy: new iam.ServicePrincipal("dlm.amazonaws.com"),

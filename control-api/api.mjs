@@ -135,7 +135,7 @@ async function verifySigned(token) {
 async function checkToken(headers) {
   const auth = headers?.authorization || headers?.Authorization || "";
   const who = await verifySigned(auth.replace(/^Bearer\s+/i, ""));
-  return who !== null && !who.startsWith("magic:");
+  return who !== null && !who.startsWith("magic:") ? who : null; // admin email or "password"
 }
 
 // ---------- magic-link login ----------
@@ -354,27 +354,33 @@ echo "LIST|$LIST"
 NAMES=$(echo "$LIST" | sed 's/.*online://' | tr ',' '\\n' | tr -cd 'A-Za-z0-9_\\n')
 for P in $NAMES; do
   [ -z "$P" ] && continue
-  echo "POS|$P|$(docker exec hamaro-mc rcon-cli data get entity $P Pos 2>&1)"
-  echo "DIM|$P|$(docker exec hamaro-mc rcon-cli data get entity $P Dimension 2>&1)"
+  for FIELD in Pos Dimension Health foodLevel XpLevel playerGameType; do
+    echo "$FIELD|$P|$(docker exec hamaro-mc rcon-cli data get entity $P $FIELD 2>&1)"
+  done
 done`;
   const out = await runCommandSync(script);
-  const online = [];
   const byName = {};
+  const GAMEMODES = ["survival", "creative", "adventure", "spectator"];
   for (const line of out.split("\n")) {
-    const [tag, ...rest] = line.split("|");
-    if (tag === "POS") {
-      const [p, data] = [rest[0], rest.slice(1).join("|")];
+    const [tag, p, ...rest] = line.split("|");
+    if (!p || tag === "LIST") continue;
+    const data = rest.join("|");
+    const P = (byName[p] = byName[p] || { name: p });
+    if (tag === "Pos") {
       const m = data.match(/\[(-?[\d.]+)d?,\s*(-?[\d.]+)d?,\s*(-?[\d.]+)d?\]/);
-      byName[p] = byName[p] || { name: p };
-      if (m) Object.assign(byName[p], { x: Math.round(+m[1]), y: Math.round(+m[2]), z: Math.round(+m[3]) });
-    } else if (tag === "DIM") {
-      const [p, data] = [rest[0], rest.slice(1).join("|")];
-      byName[p] = byName[p] || { name: p };
-      byName[p].dimension = (data.match(/minecraft:(\w+)/) || [])[1] || "overworld";
+      if (m) Object.assign(P, { x: Math.round(+m[1]), y: Math.round(+m[2]), z: Math.round(+m[3]) });
+    } else if (tag === "Dimension") {
+      P.dimension = (data.match(/minecraft:(\w+)/) || [])[1] || "overworld";
+    } else {
+      const n = data.match(/data:\s*(-?[\d.]+)/)?.[1];
+      if (n === undefined) continue;
+      if (tag === "Health") P.health = Math.round(+n);
+      else if (tag === "foodLevel") P.food = Math.round(+n);
+      else if (tag === "XpLevel") P.xp = Math.round(+n);
+      else if (tag === "playerGameType") P.gamemode = GAMEMODES[+n] || "survival";
     }
   }
-  for (const p of Object.values(byName)) online.push(p);
-  return reply(200, { online, serverUp: true });
+  return reply(200, { online: Object.values(byName), serverUp: true });
 }
 
 async function postGive(body) {
@@ -534,6 +540,110 @@ async function decideJoinRequest(body) {
   return reply(200, { denied: req.username });
 }
 
+// ---------- console GUI: batch commands, action log, recipes, schedule ----------
+
+const CMD_RE = /^[^\n\r]{1,200}$/;
+
+async function appendActions(who, commands) {
+  let log = [];
+  try {
+    const r = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: "config/action-log.json" }));
+    log = JSON.parse(await r.Body.transformToString());
+  } catch {}
+  log.push({ ts: Date.now(), who, commands });
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET, Key: "config/action-log.json",
+    Body: JSON.stringify(log.slice(-300)), ContentType: "application/json",
+  })).catch(() => {});
+}
+
+// Run many rcon commands in ONE SSM invocation — the GUI's fast path.
+async function postCommands(body, who) {
+  const cmds = body?.commands;
+  if (!Array.isArray(cmds) || cmds.length < 1 || cmds.length > 100 || !cmds.every((c) => typeof c === "string" && CMD_RE.test(c))) {
+    return reply(400, { error: "commands: 1-100 single-line strings" });
+  }
+  await requireRunning();
+  const script = cmds.map((c) => `docker exec hamaro-mc rcon-cli '${c.replace(/'/g, `'\\''`)}' 2>&1`).join("\n");
+  const commandId = await runCommand(script);
+  await appendActions(who, cmds);
+  return reply(202, { commandId, count: cmds.length });
+}
+
+async function getActions() {
+  try {
+    const r = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: "config/action-log.json" }));
+    const log = JSON.parse(await r.Body.transformToString());
+    return reply(200, { actions: log.slice(-60).reverse() });
+  } catch { return reply(200, { actions: [] }); }
+}
+
+// Recipes: named, replayable command sequences. "{player}" in a step expands
+// per selected player at run time; steps without it run once.
+const RECIPES_KEY = "config/recipes.json";
+async function readJson(key, fallback) {
+  try {
+    const r = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    return JSON.parse(await r.Body.transformToString());
+  } catch { return fallback; }
+}
+async function writeJson(key, value) {
+  await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: JSON.stringify(value, null, 2), ContentType: "application/json" }));
+}
+
+async function getRecipes() { return reply(200, { recipes: await readJson(RECIPES_KEY, {}) }); }
+
+async function putRecipe(body) {
+  const { name, steps } = body || {};
+  if (!/^[a-z0-9][a-z0-9-_ ]{0,40}$/i.test(name || "") || !Array.isArray(steps) || steps.length < 1 || steps.length > 40
+      || !steps.every((s) => typeof s === "string" && CMD_RE.test(s))) {
+    return reply(400, { error: "need a name and 1-40 single-line command steps" });
+  }
+  const recipes = await readJson(RECIPES_KEY, {});
+  recipes[name] = { steps };
+  await writeJson(RECIPES_KEY, recipes);
+  return reply(200, { recipes });
+}
+
+async function deleteRecipe(name) {
+  const recipes = await readJson(RECIPES_KEY, {});
+  delete recipes[name];
+  await writeJson(RECIPES_KEY, recipes);
+  return reply(200, { recipes });
+}
+
+export function expandRecipe(steps, players) {
+  const out = [];
+  for (const s of steps) {
+    if (s.includes("{player}")) for (const p of players) out.push(s.replaceAll("{player}", p));
+    else out.push(s);
+  }
+  return out;
+}
+
+async function runRecipe(name, body, who) {
+  const recipes = await readJson(RECIPES_KEY, {});
+  const r = recipes[name];
+  if (!r) return reply(404, { error: `no recipe named "${name}"` });
+  const players = (body?.players || []).filter((p) => NAME_RE.test(p));
+  const cmds = expandRecipe(r.steps, players);
+  if (!cmds.length) return reply(400, { error: "recipe expanded to nothing (does it need players?)" });
+  return postCommands({ commands: cmds }, `${who} (recipe:${name})`);
+}
+
+// Schedule: recurring recipe runs, executed by the scheduler Lambda.
+const SCHEDULE_KEY = "config/schedule.json";
+async function getSchedule() { return reply(200, { schedule: await readJson(SCHEDULE_KEY, []) }); }
+async function putSchedule(body) {
+  const entries = body?.schedule;
+  const ok = Array.isArray(entries) && entries.length <= 20 && entries.every((e) =>
+    typeof e?.recipe === "string" && /^\d{2}:\d{2}$/.test(e?.atUTC || "") &&
+    Array.isArray(e?.players) && e.players.every((p) => NAME_RE.test(p)));
+  if (!ok) return reply(400, { error: "schedule: [{recipe, atUTC: 'HH:MM', players: [...]}] (max 20)" });
+  await writeJson(SCHEDULE_KEY, entries.map((e) => ({ recipe: e.recipe, atUTC: e.atUTC, players: e.players })));
+  return reply(200, { schedule: entries });
+}
+
 // Server log tail for the console pane.
 async function getLogs(query) {
   const lines = Math.min(Math.max(parseInt(query?.lines || "80", 10) || 80, 10), 400);
@@ -589,7 +699,8 @@ export async function handler(event) {
     if (method === "POST" && path === "/join-request") return await postJoinRequest(body);   // public ask-to-join
 
     // Everything below requires the admin token.
-    if (!(await checkToken(event.headers))) return reply(401, { error: "admin login required" });
+    const who = await checkToken(event.headers);
+    if (!who) return reply(401, { error: "admin login required" });
 
     if (method === "POST" && path === "/stop") return await postStop();
     if (method === "GET" && path === "/profiles") return await listProfiles();
@@ -603,6 +714,12 @@ export async function handler(event) {
     if (method === "POST" && path === "/join-requests/decide") return await decideJoinRequest(body);
     if (method === "GET" && path === "/players") return await getPlayers();
     if (method === "GET" && path === "/logs") return await getLogs(event.queryStringParameters);
+    if (method === "POST" && path === "/commands") return await postCommands(body, who);
+    if (method === "GET" && path === "/actions") return await getActions();
+    if (method === "GET" && path === "/recipes") return await getRecipes();
+    if (method === "PUT" && path === "/recipes") return await putRecipe(body);
+    if (method === "GET" && path === "/schedule") return await getSchedule();
+    if (method === "PUT" && path === "/schedule") return await putSchedule(body);
     if (method === "POST" && path === "/players/whitelist") return await postPlayerRole(body, "whitelist");
     if (method === "POST" && path === "/players/op") return await postPlayerRole(body, "op");
     if (method === "POST" && path === "/give") return await postGive(body);
@@ -615,6 +732,10 @@ export async function handler(event) {
     if (method === "POST" && path === "/sync") { await requireRunning(); return reply(202, { commandId: await runCommand("/usr/local/bin/hamaro-sync && cp /opt/hamaro/env /etc/hamaro/env && echo synced") }); }
 
     let m;
+    if ((m = path.match(/^\/recipes\/([a-z0-9][a-z0-9-_ ]{0,40})$/i))) {
+      if (method === "DELETE") return await deleteRecipe(m[1]);
+      if (method === "POST") return await runRecipe(m[1], body, who);
+    }
     if ((m = path.match(/^\/warps\/([a-z0-9][a-z0-9-_ ]{0,30})$/i)) && method === "DELETE") return await deleteWarp(m[1]);
     if ((m = path.match(/^\/players\/([A-Za-z0-9_]{1,16})\/inventory$/)) && method === "GET") return await getInventory(m[1]);
     if ((m = path.match(/^\/profiles\/([^/]+)$/)) && PROFILE_RE.test(m[1])) {

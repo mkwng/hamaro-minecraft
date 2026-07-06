@@ -11,6 +11,7 @@ export WARPS_JSON=$(aws s3 cp "s3://${HAMARO_BUCKET}/profiles/${PROFILE}/warps.j
 # Names with a mirrored avatar in the site bucket (only those get image markers,
 # so a not-yet-mirrored head can never break a marker).
 export AVATARS=$(aws s3 ls "s3://${SITE_BUCKET}/avatars/" 2>/dev/null | awk '{print $NF}' | sed 's/\.png$//' | tr '\n' ' ')
+export LEVEL_DAT="/srv/minecraft/profiles/${PROFILE}/data/world/level.dat"
 python3 - "${1:-}" <<'PY'
 import json, os, sys
 
@@ -63,6 +64,27 @@ if pf and os.path.exists(pf):
             except ValueError:
                 pass
 
+# World spawn: parse SpawnX/SpawnZ from level.dat (gzipped NBT — the int tag
+# payload sits right after the tag name). Centers the map + adds a compass pin.
+import gzip, struct
+sx = sz = None
+lvl = os.environ.get("LEVEL_DAT", "")
+try:
+    raw = gzip.open(lvl, "rb").read()
+    def nbt_int(key):
+        i = raw.find(key.encode())
+        return struct.unpack(">i", raw[i + len(key):i + len(key) + 4])[0] if i >= 0 else None
+    sx, sz = nbt_int("SpawnX"), nbt_int("SpawnZ")
+except Exception:
+    pass
+if sx is not None and sz is not None:
+    markers.append({"x": sx, "z": sz, "text": "🧭 spawn", "textColor": "#48d597",
+                    "font": "bold 15px ui-monospace, monospace"})
+
 print("UnminedCustomMarkers = { isEnabled: true, markers: %s };" % json.dumps(markers))
-print('if (typeof UnminedMapProperties !== "undefined") UnminedMapProperties.background = "#0c0e0b";')
+print('if (typeof UnminedMapProperties !== "undefined") {')
+print('  UnminedMapProperties.background = "#0c0e0b";')
+if sx is not None and sz is not None:
+    print(f"  UnminedMapProperties.centerX = {sx}; UnminedMapProperties.centerZ = {sz};")
+print("}")
 PY

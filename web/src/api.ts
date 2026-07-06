@@ -7,7 +7,10 @@ export type Status = {
   address: string;
   activeProfile: string;
 };
-export type OnlinePlayer = { name: string; x?: number; y?: number; z?: number; dimension?: string };
+export type OnlinePlayer = {
+  name: string; x?: number; y?: number; z?: number; dimension?: string;
+  health?: number; food?: number; xp?: number; gamemode?: string;
+};
 export type Warp = { x: number; y: number; z: number; dimension: string; type?: string };
 export const WARP_GLYPHS: Record<string, string> = { pin: "📍", home: "🏠", farm: "🌾", portal: "🌀", danger: "☠️", star: "⭐" };
 export type JoinRequest = { username: string; email: string; at: string };

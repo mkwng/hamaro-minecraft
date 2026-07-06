@@ -291,6 +291,43 @@ ul.list li.selected { outline: 1px solid var(--green); border-radius: 2px; }
 .suggest img { width: 20px; height: 20px; image-rendering: pixelated; }
 .suggest .desc { color: var(--muted); font-size: .72rem; margin-left: auto; }
 
+/* ---------- the Deck ---------- */
+.rail { display: flex; gap: 8px; flex-wrap: wrap; }
+.pcard {
+  display: flex; flex-direction: column; gap: 3px; cursor: pointer; min-width: 150px;
+  border: 1px solid var(--line); border-radius: 2px; padding: 10px 12px; background: var(--bg2);
+  font-size: .85rem;
+}
+.pcard.sel { border-color: var(--green); box-shadow: 0 0 0 1px var(--green), 0 0 18px rgba(72,213,151,.15); }
+.pcard img { width: 24px; height: 24px; image-rendering: pixelated; }
+.pstats { font-size: .78rem; }
+.pstats em { font-style: normal; color: var(--cyan); margin-left: 6px; }
+.cattabs { display: flex; gap: 4px; margin-top: 10px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.cattabs::-webkit-scrollbar { display: none; }
+.palette {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px;
+  max-height: 300px; overflow-y: auto; border: 1px solid var(--line); border-radius: 2px;
+  padding: 8px; margin-top: 6px; background: var(--bg2);
+}
+.palitem {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px;
+  font-size: .62rem; line-height: 1.2; text-align: center; word-break: break-word; min-height: 66px;
+}
+.palitem img { width: 28px; height: 28px; image-rendering: pixelated; }
+.btnwrap { display: flex; gap: 6px; flex-wrap: wrap; }
+.btnwrap .eggicon { width: 16px; height: 16px; image-rendering: pixelated; vertical-align: -3px; margin-right: 4px; }
+.invpanel { border: 1px solid var(--cyan); border-radius: 2px; padding: 10px 12px; margin: 10px 0; }
+button.mini { padding: 2px 8px; min-height: 24px; font-size: .72rem; }
+.holdbtn.holding { background: var(--danger); color: #fff; transition: background .9s linear; }
+.recipechip { display: inline-flex; gap: 2px; align-items: center; }
+.feed { display: flex; flex-direction: column; gap: 4px; }
+.feeditem {
+  display: flex; gap: 10px; align-items: center; font-size: .78rem;
+  border-bottom: 1px solid var(--line); padding: 5px 2px; flex-wrap: wrap;
+}
+.feeditem code { color: var(--green); word-break: break-all; }
+.modicon { width: 28px; height: 28px; border-radius: 4px; }
+
 .opstatus {
   margin-top: 12px; padding: 10px 14px; border-radius: 2px; background: var(--bg2);
   border: 1px solid var(--line); border-left: 3px solid var(--green);
