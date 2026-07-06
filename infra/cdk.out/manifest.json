@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-deploy-role-414716064140-us-west-2",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-cfn-exec-role-414716064140-us-west-2",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-west-2/4fd38b226e316050140239bbe4ad386e43e9ac3d40379f2f35db528dd4c06678.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-west-2/826cc0320c2027d72efb3c2149d4011c9eb7b5659863200e9d839ab0de852b40.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -115,7 +115,7 @@
               "new ImportedVpc (/Users/michaelwang/Code/hamaro-minecraft/infra/node_modules/aws-cdk-lib/core/lib/prop-injectable.js:1:488)",
               "Vpc2.fromVpcAttributes (/Users/michaelwang/Code/hamaro-minecraft/infra/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:9085)",
               "new GameStack (/Users/michaelwang/Code/hamaro-minecraft/infra/lib/game-stack.ts:105:25)",
-              "Object.<anonymous> (/Users/michaelwang/Code/hamaro-minecraft/infra/bin/hamaro.ts:10:1)",
+              "Object.<anonymous> (/Users/michaelwang/Code/hamaro-minecraft/infra/bin/hamaro.ts:11:1)",
               "Module._compile (node:internal/modules/cjs/loader:1759:14)",
               "Module.m._compile (/Users/michaelwang/Code/hamaro-minecraft/infra/node_modules/ts-node/src/index.ts:1618:23)",
               "node:internal/modules/cjs/loader:1892:10",
@@ -596,6 +596,102 @@
         ]
       },
       "displayName": "HamaroWeb"
+    },
+    "HamaroCi.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "HamaroCi.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "HamaroCi": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://414716064140/us-west-2",
+      "properties": {
+        "templateFile": "HamaroCi.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-deploy-role-414716064140-us-west-2",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-cfn-exec-role-414716064140-us-west-2",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-west-2/edcab324af8160b455edfbe6c2f84bc1a3623af32b283e3790b2f213657460d5.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "HamaroCi.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-lookup-role-414716064140-us-west-2",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "HamaroCi.assets"
+      ],
+      "metadata": {
+        "/HamaroCi/GithubOidc/Resource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GithubOidc86785739"
+          }
+        ],
+        "/HamaroCi/Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider": [
+          {
+            "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
+            "data": true
+          }
+        ],
+        "/HamaroCi/Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider/Role": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomAWSCDKOpenIdConnectProviderCustomResourceProviderRole517FED65"
+          }
+        ],
+        "/HamaroCi/Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider/Handler": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomAWSCDKOpenIdConnectProviderCustomResourceProviderHandlerF2C543E0"
+          }
+        ],
+        "/HamaroCi/DeployRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DeployRole885297C3"
+          }
+        ],
+        "/HamaroCi/DeployRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DeployRoleDefaultPolicyDC930F96"
+          }
+        ],
+        "/HamaroCi/DeployRoleArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DeployRoleArn"
+          }
+        ],
+        "/HamaroCi/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/HamaroCi/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/HamaroCi/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "HamaroCi"
     },
     "Tree": {
       "type": "cdk:tree",

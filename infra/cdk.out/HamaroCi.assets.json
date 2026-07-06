@@ -1,0 +1,36 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "62fa02efcaa700e1c247e1d3cc2aa0cd07a0808a9a3e3d2230e51f57a02233fb": {
+      "displayName": "HamaroCi/Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider Code",
+      "source": {
+        "path": "asset.62fa02efcaa700e1c247e1d3cc2aa0cd07a0808a9a3e3d2230e51f57a02233fb",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "414716064140-us-west-2-dc659622": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-west-2",
+          "objectKey": "62fa02efcaa700e1c247e1d3cc2aa0cd07a0808a9a3e3d2230e51f57a02233fb.zip",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-west-2"
+        }
+      }
+    },
+    "edcab324af8160b455edfbe6c2f84bc1a3623af32b283e3790b2f213657460d5": {
+      "displayName": "HamaroCi Template",
+      "source": {
+        "path": "HamaroCi.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "414716064140-us-west-2-08784db8": {
+          "bucketName": "cdk-hnb659fds-assets-414716064140-us-west-2",
+          "objectKey": "edcab324af8160b455edfbe6c2f84bc1a3623af32b283e3790b2f213657460d5.json",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-west-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  id-token: write   # OIDC federation to AWS — no stored secrets
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false   # never kill a deploy mid-flight
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ---- checks (run on PRs and pushes) ----
+      - name: Lambda syntax (zero-dep, so a syntax check is the whole build)
+        run: |
+          node --check control-api/api.mjs
+          node --check control-api/reaper.mjs
+
+      - name: Website typecheck + build
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Infra typecheck + synth
+        working-directory: infra
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npx cdk synth --quiet
+
+      - name: Shell scripts parse
+        run: for f in server/*.sh scripts/*.sh; do bash -n "$f"; done
+
+      # ---- deploy (pushes to main only) ----
+      - name: Assume AWS deploy role (OIDC)
+        if: github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::414716064140:role/hamaro-github-deploy
+          aws-region: us-west-2
+
+      - name: Deploy
+        if: github.event_name == 'push'
+        working-directory: infra
+        run: npx cdk deploy HamaroGame HamaroWeb --require-approval never --concurrency 2
+
+      - name: Smoke test
+        if: github.event_name == 'push'
+        run: |
+          curl -fsS https://api.mc.rowan.wang/status | head -c 300
+          curl -fsS -o /dev/null -w "site: %{http_code}\n" https://hamaro.rowan.wang
