@@ -56,6 +56,7 @@ if pf and os.path.exists(pf):
                     "x": int(float(parts[1])), "z": int(float(parts[2])),
                     "text": parts[0], "textColor": "#f5cf65", "offsetY": 16,
                     "font": "bold 14px ui-monospace, monospace",
+                    "isPlayer": True,  # hamaro.map.js auto-zooms to these
                 }
                 if parts[0] in avatars:  # mirrored head icon (pixel avatar)
                     m.update({"image": f"/avatars/{parts[0]}.png",
