@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, WARP_GLYPHS, type OnlinePlayer, type Warp, type InvItem } from "../api";
+import { api, bus, WARP_GLYPHS, type OnlinePlayer, type Warp, type InvItem } from "../api";
 import { useAsync, useInterval } from "../hooks";
 import { useOpStatus } from "./AdminPanel";
 import Drawer from "./Drawer";
@@ -21,6 +21,37 @@ export function HoldButton({ label, onFire, ms = 900 }: { label: string; onFire:
   );
 }
 
+// NB: must stay at module level — defined inside PlayersTab, React would see a
+// fresh component type on every render and remount it, wiping the input while
+// the 12s players poll is running.
+function RoleList({ title, subtitle, role, names, onChange }: {
+  title: string; subtitle?: string; role: "whitelist" | "op"; names: string[]; onChange: (n: string[]) => void;
+}) {
+  const flash = useOpStatus();
+  const [name, setName] = useState("");
+  const key = role === "op" ? "ops" : "whitelist";
+  const act = async (n: string, action: "add" | "remove") => {
+    try {
+      const r = await api<any>(`/players/${role}`, { method: "POST", body: JSON.stringify({ name: n, action }) });
+      onChange(r[key]);
+      flash(`✔ ${action === "add" ? "added" : "removed"} ${n} (${r.applied})`);
+    } catch (e: any) { flash("✖ " + e.message); }
+  };
+  return (
+    <>
+      <h3>{title} {subtitle && <span className="hint">({subtitle})</span>}</h3>
+      <ul className="list">
+        {names.map((n) => <li key={n}>{n}<span className="spacer" /><button onClick={() => act(n, "remove")}>Remove</button></li>)}
+      </ul>
+      <div className="row">
+        <input placeholder="Minecraft username" value={name} onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && name && (act(name, "add"), setName(""))} />
+        <button onClick={() => { if (name) { act(name, "add"); setName(""); } }}>Add</button>
+      </div>
+    </>
+  );
+}
+
 // Everything about PEOPLE: who's online (and doing things to/for them),
 // recipes (player-action macros), and who's allowed in (whitelist/ops).
 export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
@@ -35,6 +66,9 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [recipes, setRecipes] = useState<Record<string, Recipe>>({});
   const [recording, setRecording] = useState<string[] | null>(null);
+  const [cart, setCart] = useState<{ item: string; qty: number }[]>([]);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState("");
   const [inv, setInv] = useState<{ player: string; items: InvItem[] } | null>(null);
   const [wl, setWl] = useState<string[] | null>(null);
   const [ops, setOps] = useState<string[] | null>(null);
@@ -43,10 +77,15 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
   const warps = warpsData?.warps || {};
   const targets = [...selected].filter((p) => online.some((o) => o.name === p));
 
+  // Keep previous state identities when a poll brings no news, so refreshes
+  // that change nothing don't rerender the whole tab.
   const loadOnline = () => serverUp && api<{ online: OnlinePlayer[] }>("/players")
     .then((r) => {
-      setOnline(r.online);
-      setSelected((s) => new Set([...s].filter((n) => r.online.some((o) => o.name === n))));
+      setOnline((prev) => (JSON.stringify(prev) === JSON.stringify(r.online) ? prev : r.online));
+      setSelected((s) => {
+        const keep = [...s].filter((n) => r.online.some((o) => o.name === n));
+        return keep.length === s.size ? s : new Set(keep);
+      });
     }).catch(() => {});
   useEffect(() => { loadOnline(); }, [serverUp]);
   useInterval(loadOnline, 12000);
@@ -60,10 +99,17 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
     setWl(get("WHITELIST")); setOps(get("OPS"));
   };
   useEffect(() => { loadRoles().catch(() => {}); }, []);
+  // Approvals from the notification bell change the whitelist — pick them up live.
+  useEffect(() => {
+    const h = () => loadRoles().catch(() => {});
+    bus.addEventListener("roles-changed", h);
+    return () => bus.removeEventListener("roles-changed", h);
+  }, []);
 
-  async function run(templates: string[], opts: { undo?: string[] } = {}) {
+  async function run(templates: string[], opts: { undo?: string[] } = {}): Promise<boolean> {
     if (templates.some((t) => t.includes("{player}")) && targets.length === 0) {
-      return flash("✖ select at least one player first");
+      flash("✖ select at least one player first");
+      return false;
     }
     const commands = templates.flatMap((t) =>
       t.includes("{player}") ? targets.map((p) => t.replaceAll("{player}", p)) : [t]);
@@ -72,7 +118,8 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
     try {
       await api("/commands", { method: "POST", body: JSON.stringify({ commands }) });
       flash(`✔ ${commands.length} command${commands.length === 1 ? "" : "s"} sent`);
-    } catch (e: any) { flash("✖ " + e.message); }
+      return true;
+    } catch (e: any) { flash("✖ " + e.message); return false; }
   }
 
   const shown = useMemo(() => {
@@ -84,13 +131,30 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
     return pool.slice(0, 120);
   }, [items, cat, query]);
 
-  const give = (item: string) => {
-    if (inv && !targets.includes(inv.player)) {
-      run([`give ${inv.player} ${item} ${qty}`]).then(() => peek(inv.player));
-    } else {
-      run([`give {player} ${item} ${qty}`]);
-    }
+  // Item clicks fill a cart; nothing reaches the server until "Send". The cart
+  // ships to the open backpack if one is open, otherwise to the selected players.
+  const addToCart = (item: string) => {
+    setSent("");
+    setCart((c) => {
+      const i = c.findIndex((e) => e.item === item);
+      return i < 0 ? [...c, { item, qty }] : c.map((e, j) => (j === i ? { ...e, qty: e.qty + qty } : e));
+    });
   };
+
+  async function sendCart() {
+    const recipients = inv ? [inv.player] : targets;
+    if (recipients.length === 0) return flash("✖ select at least one player first");
+    setSending(true);
+    const templates = cart.map((e) => (inv ? `give ${inv.player} ${e.item} ${e.qty}` : `give {player} ${e.item} ${e.qty}`));
+    const ok = await run(templates);
+    setSending(false);
+    if (ok) {
+      setSent(`✔ sent ${cart.reduce((s, e) => s + e.qty, 0)} item${cart.length === 1 && cart[0].qty === 1 ? "" : "s"} to ${recipients.join(", ")}`);
+      setCart([]);
+      if (inv) peek(inv.player);
+      window.setTimeout(() => setSent(""), 6000);
+    }
+  }
 
   async function peek(player: string) {
     try {
@@ -110,33 +174,6 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
       flash(`✔ recipe "${name}" saved (${recording.length} steps)`);
     }
     setRecording(null);
-  }
-
-  function RoleList({ title, subtitle, role, names, onChange }: {
-    title: string; subtitle?: string; role: "whitelist" | "op"; names: string[]; onChange: (n: string[]) => void;
-  }) {
-    const [name, setName] = useState("");
-    const key = role === "op" ? "ops" : "whitelist";
-    const act = async (n: string, action: "add" | "remove") => {
-      try {
-        const r = await api<any>(`/players/${role}`, { method: "POST", body: JSON.stringify({ name: n, action }) });
-        onChange(r[key]);
-        flash(`✔ ${action === "add" ? "added" : "removed"} ${n} (${r.applied})`);
-      } catch (e: any) { flash("✖ " + e.message); }
-    };
-    return (
-      <>
-        <h3>{title} {subtitle && <span className="hint">({subtitle})</span>}</h3>
-        <ul className="list">
-          {names.map((n) => <li key={n}>{n}<span className="spacer" /><button onClick={() => act(n, "remove")}>Remove</button></li>)}
-        </ul>
-        <div className="row">
-          <input placeholder="Minecraft username" value={name} onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && name && (act(name, "add"), setName(""))} />
-          <button onClick={() => { if (name) { act(name, "add"); setName(""); } }}>Add</button>
-        </div>
-      </>
-    );
   }
 
   return (
@@ -164,8 +201,8 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
 
       {inv && (
         <Drawer title={<>🎒 {inv.player}'s inventory</>} onClose={() => setInv(null)}>
-          <p className="hint" style={{ marginTop: 0 }}>✕ takes an item away. To give, close this and use the palette
-            (or keep it open — palette clicks go into this backpack).</p>
+          <p className="hint" style={{ marginTop: 0 }}>✕ takes an item away. To give, pick items from the palette below —
+            while this is open, the box sends into this backpack.</p>
           <div className="inv">
             {inv.items.length === 0 && <span className="hint">(empty)</span>}
             {inv.items.map((it) => (
@@ -182,7 +219,8 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
       )}
 
       {serverUp && <>
-        <h3>Give items {inv ? <span className="hint">→ {inv.player}'s backpack</span> : <span className="hint">→ selected players</span>}</h3>
+        <h3>Give items {inv ? <span className="hint">→ {inv.player}'s backpack</span> : <span className="hint">→ selected players</span>}
+          <span className="hint"> — clicks fill the box, nothing sends until you hit Send</span></h3>
         <div className="row" style={{ marginTop: 4 }}>
           <input placeholder="search items…" value={query} onChange={(e) => setQuery(e.target.value)} />
           {[1, 16, 64].map((n) => <button key={n} className={qty === n ? "primary" : ""} onClick={() => setQty(n)}>×{n}</button>)}
@@ -194,13 +232,33 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
         </div>
         <div className="palette">
           {shown.map((i) => (
-            <button key={i} className="palitem" title={`give ${qty}× ${i}`} onClick={() => give(i)}>
+            <button key={i} className="palitem" title={`add ${qty}× ${i} to the box`} onClick={() => addToCart(i)}>
               <img src={`/items/${i}.png`} alt={i} loading="lazy" />
               <span>{i.replaceAll("_", " ")}</span>
             </button>
           ))}
           {shown.length === 0 && <span className="hint">no matches</span>}
         </div>
+
+        {(cart.length > 0 || sent) && (
+          <div className="cartbar">
+            {cart.map((e) => (
+              <span className="invitem" key={e.item}>
+                <img src={`/items/${e.item}.png`} alt="" onError={(ev) => ((ev.target as HTMLImageElement).style.display = "none")} />
+                {e.item.replaceAll("_", " ")}<em>×{e.qty}</em>
+                <button className="mini" title="remove" onClick={() => setCart((c) => c.filter((x) => x.item !== e.item))}>✕</button>
+              </span>
+            ))}
+            <span className="spacer" />
+            {sent && <span className="hint ok">{sent}</span>}
+            {cart.length > 0 && <>
+              <button onClick={() => setCart([])}>clear</button>
+              <button className="primary" disabled={sending} onClick={sendCart}>
+                {sending ? "sending…" : `📦 Send → ${inv ? inv.player : targets.length ? targets.join(", ") : "(select players)"}`}
+              </button>
+            </>}
+          </div>
+        )}
 
         <h3>Effects <span className="hint">(60s on selected)</span></h3>
         <div className="btnwrap">

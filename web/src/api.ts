@@ -13,7 +13,7 @@ export type OnlinePlayer = {
 };
 export type Warp = { x: number; y: number; z: number; dimension: string; type?: string };
 export const WARP_GLYPHS: Record<string, string> = { pin: "📍", home: "🏠", farm: "🌾", portal: "🌀", danger: "☠️", star: "⭐" };
-export type JoinRequest = { username: string; email: string; at: string };
+export type JoinRequest = { username: string; email: string; at: string; knock?: boolean };
 export type BackupEntry = { key: string; size: number; lastModified: string };
 export type InvItem = { slot: number; item: string; count: number };
 
@@ -38,6 +38,11 @@ export const auth = {
   },
   subscribe(fn: () => void) { onAuthChange = fn; },
 };
+
+// Tiny in-page event bus so far-apart components stay in sync without a refresh
+// (e.g. approving a join request from the bell updates the Players tab's whitelist).
+export const bus = new EventTarget();
+export const emit = (type: string) => bus.dispatchEvent(new Event(type));
 
 export class ApiError extends Error {
   status: number;

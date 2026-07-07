@@ -251,6 +251,13 @@ ul.list li.selected { outline: 1px solid var(--green); border-radius: 2px; }
 .invitem img { width: 22px; height: 22px; image-rendering: pixelated; }
 .invitem em { font-style: normal; color: var(--muted); }
 
+/* gift box (cart) under the item palette */
+.cartbar {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 6px; padding: 8px; border: 1px dashed var(--green); border-radius: 2px;
+  background: var(--bg2);
+}
+
 /* ---------- pro console ---------- */
 .logpane {
   background: #070906; color: #b9d3a8; border-radius: 2px; border: 1px solid var(--line);
