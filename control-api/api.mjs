@@ -409,25 +409,42 @@ async function postValidatePlayers(body) {
 }
 
 // Online players with position + dimension, one SSM round-trip for all.
+const PLAYER_FIELDS = ["Pos", "Dimension", "Health", "foodLevel", "XpLevel", "playerGameType"];
 async function getPlayers() {
   if ((await instanceState()).state !== "running") return reply(200, { online: [], serverUp: false });
   // rcon-cli joins its arguments, and usernames are [A-Za-z0-9_] — no quoting games needed.
+  // All per-player queries go through ONE rcon session (rcon-cli with no args reads
+  // commands from stdin): a connection per query spams the server console with
+  // "Thread RCON Client started/shutting down" pairs. Interactive mode prefixes
+  // each response with "> " and answers in command order, so tags pair up by line;
+  // if the line counts ever disagree, fall back to one connection per query.
   const script = `
 LIST=$(docker exec hamaro-mc rcon-cli list 2>&1)
 echo "LIST|$LIST"
 NAMES=$(echo "$LIST" | sed 's/.*online://' | tr ',' '\\n' | tr -cd 'A-Za-z0-9_\\n')
+[ -z "$(echo $NAMES)" ] && exit 0
+D=$(mktemp -d); trap 'rm -rf "$D"' EXIT
 for P in $NAMES; do
   [ -z "$P" ] && continue
-  for FIELD in Pos Dimension Health foodLevel XpLevel playerGameType; do
-    echo "$FIELD|$P|$(docker exec hamaro-mc rcon-cli data get entity $P $FIELD 2>&1)"
+  for FIELD in ${PLAYER_FIELDS.join(" ")}; do
+    echo "data get entity $P $FIELD" >> "$D/cmds"
+    echo "$FIELD|$P" >> "$D/tags"
   done
-done`;
+done
+docker exec -i hamaro-mc rcon-cli < "$D/cmds" 2>/dev/null | sed 's/^> //' | grep -v '^$' > "$D/out" || true
+if [ "$(wc -l < "$D/out")" -eq "$(wc -l < "$D/cmds")" ]; then
+  paste -d'|' "$D/tags" "$D/out"
+else
+  while IFS='|' read -r FIELD P; do
+    echo "$FIELD|$P|$(docker exec hamaro-mc rcon-cli data get entity $P $FIELD 2>&1)"
+  done < "$D/tags"
+fi`;
   const out = await runCommandSync(script);
   const byName = {};
   const GAMEMODES = ["survival", "creative", "adventure", "spectator"];
   for (const line of out.split("\n")) {
     const [tag, p, ...rest] = line.split("|");
-    if (!p || tag === "LIST") continue;
+    if (!p || !PLAYER_FIELDS.includes(tag)) continue;
     const data = rest.join("|");
     const P = (byName[p] = byName[p] || { name: p });
     if (tag === "Pos") {

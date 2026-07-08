@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, auth, type JoinRequest, type Status } from "../api";
+import { api, auth, emit, type JoinRequest, type Status } from "../api";
 import { useInterval } from "../hooks";
 
 // Bell + dropdown in the topbar. Notice sources today: join requests + a
@@ -20,7 +20,7 @@ export default function NotificationCenter({ status }: { status?: Status | null 
     api<{ requests: JoinRequest[] }>("/join-requests").then((r) => setRequests(r.requests)).catch(() => {});
   };
   useEffect(load, [auth.token]);
-  useInterval(load, 60000);
+  useInterval(load, 15000); // near-live: knocks land within a watchdog minute + one poll
 
   useEffect(() => {
     const close = (e: MouseEvent) => { if (!boxRef.current?.contains(e.target as Node)) setOpen(false); };
@@ -36,10 +36,12 @@ export default function NotificationCenter({ status }: { status?: Status | null 
 
   const decide = async (username: string, action: "approve" | "deny") => {
     try {
+      const hasEmail = !!requests.find((q) => q.username === username)?.email;
       const r = await api<any>("/join-requests/decide", { method: "POST", body: JSON.stringify({ username, action }) });
       setMsg(r.approved
-        ? (r.emailNotified ? `✔ ${username} whitelisted + emailed` : `✔ ${username} whitelisted (email couldn't be sent)`)
+        ? `✔ ${username} whitelisted${hasEmail ? (r.emailNotified ? " + emailed" : " (email couldn't be sent)") : ""}`
         : `✔ ${username} denied`);
+      if (r.approved) emit("roles-changed"); // Players tab picks up the new whitelist live
       load();
     } catch (e: any) { setMsg("✖ " + e.message); }
   };
@@ -57,8 +59,10 @@ export default function NotificationCenter({ status }: { status?: Status | null 
             n.kind === "join" ? (
               <div className="notifitem" key={i}>
                 <div>
-                  <b>{n.req.username}</b> asked to join
-                  <div className="hint">{n.req.email} · {new Date(n.req.at).toLocaleDateString()}</div>
+                  {n.req.knock
+                    ? <><b>{n.req.username}</b> tried to join but isn't whitelisted 🚪</>
+                    : <><b>{n.req.username}</b> asked to join</>}
+                  <div className="hint">{n.req.email || "knocked at the server door"} · {new Date(n.req.at).toLocaleString()}</div>
                 </div>
                 <div className="row" style={{ marginTop: 6 }}>
                   <button className="primary mini" onClick={() => decide(n.req.username, "approve")}>Approve ✔</button>
