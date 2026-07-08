@@ -1,0 +1,7 @@
+[Unit]
+Description=Hamaro idle watchdog (one check)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/hamaro/watchdog.sh

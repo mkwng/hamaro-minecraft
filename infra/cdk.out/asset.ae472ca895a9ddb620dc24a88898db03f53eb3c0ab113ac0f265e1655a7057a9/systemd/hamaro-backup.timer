@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up the live world every 2 hours while the server is up
+
+[Timer]
+OnBootSec=2h
+OnUnitActiveSec=2h
+
+[Install]
+WantedBy=timers.target
