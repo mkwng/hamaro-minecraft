@@ -31,16 +31,16 @@
         }
       }
     },
-    "ae472ca895a9ddb620dc24a88898db03f53eb3c0ab113ac0f265e1655a7057a9": {
+    "a780c760a3af3bda4a02fa660dfbd002185ef46dc4ab5ef6db370f489930429f": {
       "displayName": "ServerScripts/Asset1",
       "source": {
-        "path": "asset.ae472ca895a9ddb620dc24a88898db03f53eb3c0ab113ac0f265e1655a7057a9",
+        "path": "asset.a780c760a3af3bda4a02fa660dfbd002185ef46dc4ab5ef6db370f489930429f",
         "packaging": "zip"
       },
       "destinations": {
-        "414716064140-us-west-2-8fa7f70a": {
+        "414716064140-us-west-2-4f6a521b": {
           "bucketName": "cdk-hnb659fds-assets-414716064140-us-west-2",
-          "objectKey": "ae472ca895a9ddb620dc24a88898db03f53eb3c0ab113ac0f265e1655a7057a9.zip",
+          "objectKey": "a780c760a3af3bda4a02fa660dfbd002185ef46dc4ab5ef6db370f489930429f.zip",
           "region": "us-west-2",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-west-2"
         }
@@ -76,16 +76,16 @@
         }
       }
     },
-    "b5c1bbaa7c4b137e083e04d5b938ae7633e9e766ec2a9e483ffd1998977d3584": {
+    "08f452c5dbbd23cd5492909d6d8e585b7b38d66d7a93abd49874083ce89ea1e6": {
       "displayName": "HamaroGame Template",
       "source": {
         "path": "HamaroGame.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "414716064140-us-west-2-3e59394d": {
+        "414716064140-us-west-2-045d5a15": {
           "bucketName": "cdk-hnb659fds-assets-414716064140-us-west-2",
-          "objectKey": "b5c1bbaa7c4b137e083e04d5b938ae7633e9e766ec2a9e483ffd1998977d3584.json",
+          "objectKey": "08f452c5dbbd23cd5492909d6d8e585b7b38d66d7a93abd49874083ce89ea1e6.json",
           "region": "us-west-2",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-file-publishing-role-414716064140-us-west-2"
         }
