@@ -64,6 +64,42 @@ Budget emails fire at $20 and $35/mo. The reaper caps runaway instances at 12 h.
 Check: instance stuck running? (`stop` it), NAT gateway accidentally created? (there should be NONE),
 S3 bucket growing unexpectedly? (`aws s3 ls s3://hamaro-minecraft-<acct>/backups/ --recursive --summarize`).
 
+## Deploying safely (won't interrupt active players)
+
+**The vast majority of changes are zero-risk to a live game**, because they never touch the
+EC2 instance itself:
+- Website (`web/`) and control API (`control-api/*.mjs`) — Lambda/S3 redeploys, live in seconds,
+  no effect on the running Minecraft process at all.
+- Server scripts (`server/*.sh`) — synced from S3, picked up on the instance's *next* boot or
+  stop, never mid-session.
+- World/mod/settings changes — applied via the admin panel, which already only restarts the
+  Minecraft *container* (a normal, expected, brief interruption players understand), never the
+  EC2 host underneath it.
+
+**The one category that's genuinely dangerous:** anything that changes the EC2 **instance**
+resource itself (AMI, instance type, subnet/VPC, etc.) forces CloudFormation to *replace* the
+whole host — destroy the running one, boot a new one. For a stateful single-instance game server
+mid-session, that's catastrophic if it happens by surprise. This actually happened on 2026-07-08:
+CDK's "latest Amazon Linux" AMI lookup silently drifted to a newer image between deploys, and a
+routine CI run tried to replace the live instance while 2 players were connected. Two things now
+prevent a repeat:
+1. **`gameAmiId` in `infra/lib/config.ts` is a pinned, explicit AMI ID** — never re-resolved
+   "latest" — so ordinary deploys can never drift into a surprise replacement.
+2. **CI runs `cdk diff HamaroGame` before every deploy and hard-fails if McInstance would be
+   replaced** (`.github/workflows/deploy.yml`, "Guard against accidental game-instance
+   replacement"). No routine push can silently take down the game host — the pipeline stops
+   and tells you exactly why.
+
+**If you ever deliberately need to replace the instance** (new instance type, a real AMI bump
+on maintenance day): do it manually, not through the CI gate.
+1. Check nobody's playing: `curl -s https://api.mc.rowan.wang/status` — `players` should be 0,
+   or just ask the family first.
+2. Trigger a fresh backup (admin panel → World → Backups → "Back up now").
+3. Make the change, run `cdk diff HamaroGame` yourself and actually read it — confirm you
+   *intend* the replacement it's showing.
+4. `cdk deploy HamaroGame` locally (`aws login` first), watch it complete, then verify
+   `curl .../status` shows the server healthy again before considering it done.
+
 ## If CDK itself won't build (it's 2033 and node/CDK moved on)
 
 The synthesized CloudFormation templates are **committed** in `infra/cdk.out/`. Deploy them raw:
