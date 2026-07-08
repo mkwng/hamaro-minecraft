@@ -41,6 +41,10 @@ export const COMMANDS: CmdSpec[] = [
   { name: "xp add", desc: "Give experience", args: [P(), { name: "amount", type: { kind: "int", min: 1, max: 10000 } }, E("unit", ["levels", "points"])] },
   { name: "summon", desc: "Spawn a friendly mob at spawn", args: [E("mob", ["cat", "dog", "wolf", "horse", "pig", "sheep", "cow", "chicken", "rabbit", "fox", "panda", "parrot", "axolotl", "allay", "camel", "sniffer"])] },
   { name: "locate structure", desc: "Find the nearest structure", args: [E("structure", ["minecraft:village_plains", "minecraft:ruined_portal", "minecraft:stronghold", "minecraft:mansion", "minecraft:monument", "minecraft:trial_chambers", "minecraft:ancient_city", "minecraft:shipwreck", "minecraft:desert_pyramid"])] },
+  {
+    name: "locate biome", desc: "Find the nearest biome (works even in unexplored land after a version upgrade)",
+    args: [E("biome", ["minecraft:cherry_grove", "minecraft:mangrove_swamp", "minecraft:dripstone_caves", "minecraft:lush_caves", "minecraft:meadow", "minecraft:grove", "minecraft:snowy_slopes", "minecraft:jagged_peaks", "minecraft:frozen_peaks", "minecraft:stony_peaks", "minecraft:deep_dark", "minecraft:mushroom_fields", "minecraft:badlands", "minecraft:ice_spikes", "minecraft:bamboo_jungle"])],
+  },
   { name: "kick", desc: "Kick a player (they can rejoin)", args: [P(), { name: "reason", type: { kind: "text" }, optional: true }] },
   { name: "ban", desc: "Ban a player", danger: true, args: [P(), { name: "reason", type: { kind: "text" }, optional: true }] },
   { name: "pardon", desc: "Un-ban a player", args: [P()] },

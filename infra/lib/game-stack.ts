@@ -370,6 +370,48 @@ EOF`,
       targets: [new events_targets.LambdaFunction(schedulerFn)],
     });
 
+    // ---------- smart maintenance: nightly, off-hours, instance-must-be-stopped ----------
+    // Auto-applies only same-family Minecraft/Paper patch releases (low risk),
+    // with a mandatory backup + health check + auto-rollback on failure. A new
+    // version FAMILY (new content, e.g. a new biome) and itzg image updates are
+    // notify-only — never silently applied. The EC2 AMI is never touched here;
+    // see the CI guard for that. 11:00 UTC ≈ 3-4am Pacific, safely asleep.
+    const maintenanceFn = new lambda.Function(this, "MaintenanceFn", {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "maintenance.handler",
+      code: lambda.Code.fromAsset("../control-api"),
+      timeout: Duration.minutes(10),
+      logGroup: new logs.LogGroup(this, "MaintenanceLogs", { retention: logs.RetentionDays.THREE_MONTHS }),
+      environment: {
+        INSTANCE_ID: instance.instanceId,
+        BUCKET: bucket.bucketName,
+        SENDER_EMAIL: senderEmail,
+        MC_IMAGE_TAG: C.mcImageTag,
+      },
+    });
+    bucket.grantReadWrite(maintenanceFn);
+    maintenanceFn.addToRolePolicy(new iam.PolicyStatement({ actions: ["ec2:DescribeInstances"], resources: ["*"] }));
+    maintenanceFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["ssm:GetParameter"],
+      resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/hamaro/*`],
+    }));
+    maintenanceFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["ssm:SendCommand"],
+      resources: [
+        `arn:aws:ssm:${this.region}::document/AWS-RunShellScript`,
+        `arn:aws:ec2:${this.region}:${this.account}:instance/${instance.instanceId}`,
+      ],
+    }));
+    maintenanceFn.addToRolePolicy(new iam.PolicyStatement({ actions: ["ssm:GetCommandInvocation"], resources: ["*"] }));
+    maintenanceFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["ses:SendEmail"], resources: ["*"],
+      conditions: { StringEquals: { "ses:FromAddress": senderEmail } },
+    }));
+    new events.Rule(this, "MaintenanceSchedule", {
+      schedule: events.Schedule.cron({ minute: "0", hour: "11" }),
+      targets: [new events_targets.LambdaFunction(maintenanceFn)],
+    });
+
     // ---------- weekly EBS snapshots (belt-and-braces behind S3 backups) ----------
     const dlmRole = new iam.Role(this, "DlmRole", {
       assumedBy: new iam.ServicePrincipal("dlm.amazonaws.com"),

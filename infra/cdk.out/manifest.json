@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-deploy-role-414716064140-us-west-2",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-cfn-exec-role-414716064140-us-west-2",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-west-2/c3601063604facc86360fa1b95db8ebd472c4a5209901f8d11d65dccd2b592d7.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-west-2/f87b77f424f686ae11d98bc614f797d2e779e592faa8b273a4223facbe861ba5.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -380,6 +380,42 @@
             "data": "SchedulerScheduleAllowEventRuleHamaroGameSchedulerFn5EC23B48DB6C405C"
           }
         ],
+        "/HamaroGame/MaintenanceLogs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MaintenanceLogs61C6A99C"
+          }
+        ],
+        "/HamaroGame/MaintenanceFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MaintenanceFnServiceRoleEA576ABA"
+          }
+        ],
+        "/HamaroGame/MaintenanceFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MaintenanceFnServiceRoleDefaultPolicy8A2242DB"
+          }
+        ],
+        "/HamaroGame/MaintenanceFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MaintenanceFnDF8A5C5F"
+          }
+        ],
+        "/HamaroGame/MaintenanceSchedule/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MaintenanceSchedule853DE1A2"
+          }
+        ],
+        "/HamaroGame/MaintenanceSchedule/AllowEventRuleHamaroGameMaintenanceFn37B8441E": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MaintenanceScheduleAllowEventRuleHamaroGameMaintenanceFn37B8441EFBEED2EF"
+          }
+        ],
         "/HamaroGame/DlmRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -466,7 +502,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-deploy-role-414716064140-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::414716064140:role/cdk-hnb659fds-cfn-exec-role-414716064140-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-east-1/03056a8d8765e84672f147dd324bcce69e2656dd72f2de966166555a47c4aa8f.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-414716064140-us-east-1/8f8e231fc800f0fb80be5123188ac9c3604e316f020188da163f8e9642af2aef.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [

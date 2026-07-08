@@ -117,6 +117,43 @@ The website is plain files in `web/` — `aws s3 sync web/ s3://<site-bucket>/` 
    to the current runtime and `cdk deploy`. The handlers use zero npm dependencies precisely so this
    is always a one-line change.
 
+### Smart maintenance (automatic — since 2026-07-08)
+
+A Lambda (`control-api/maintenance.mjs`) runs nightly at 11:00 UTC (~3-4am Pacific) and **only
+does anything if the instance is fully stopped** — a stronger guarantee than "no players," since
+nobody can possibly be connected to a machine that isn't running.
+
+- **Same-family patch release** (e.g. `26.2` → `26.2.1` — bugfixes, no new content): applied
+  automatically. Backs up first, applies, waits for a healthy heartbeat; if it doesn't come up
+  clean, automatically restores the pre-update backup and emails the admins explaining what
+  happened. The world can never be left broken by this.
+- **A new version *family*** (e.g. `26.2` → `26.3` — this is where new content like biomes ships):
+  **notify-only, by design.** New content is something the kids want to be there for, not
+  something that happens silently at 3am. You'll get an email; apply it yourselves from
+  World → Settings when it's a good moment (see "Getting a new biome" below).
+- **A newer itzg server-image release**: notify-only (it needs a code change to `mcImageTag` +
+  a CI deploy, which this Lambda deliberately can't do itself).
+- **The EC2 AMI is never touched by this system, ever.** That stays fully manual — see "Deploying
+  safely" above.
+
+### Getting a new biome (or any new-content update) into an existing world
+
+Updating the server makes a new biome *available* to generate — it does **not** retroactively
+repaint chunks that already exist. Minecraft's terrain, once generated, is permanent; only
+**newly generated chunks** (land nobody has ever loaded before) use the new version's generation
+rules. Practically, after applying a content update to `survival`:
+
+- **Go exploring in a direction you haven't been.** New chunks out past the frontier will use
+  the updated worldgen and can include the new biome. This is the normal, recommended way to
+  find a new biome — it preserves everything already built.
+- **Use `/locate biome minecraft:<biome>`** (Console tab, or the Deck) — biome placement is
+  deterministic from the world seed, so this works even for land that hasn't generated yet. It
+  points you at the nearest coordinates; travel there and it generates with the new biome when
+  you arrive.
+- **Want it immediately, without a long walk?** Spin up a second world (World → Worlds → Create,
+  same or newer version) as a "preview" — new worlds generate everything fresh from spawn, so a
+  brand new biome type can show up right away. `survival` stays untouched.
+
 ## Yearly maintenance day (~1 hour — put it on the calendar)
 
 - [ ] Restore drill: pick a recent backup, restore into a throwaway profile (`test-restore`), switch to it, see the world load. Delete the profile dir after.
