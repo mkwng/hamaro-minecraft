@@ -275,6 +275,29 @@
      "Aliases": [
       "hamaro.rowan.wang"
      ],
+     "CacheBehaviors": [
+      {
+       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+       "Compress": true,
+       "PathPattern": "/map/custom.markers.js",
+       "TargetOriginId": "HamaroWebSiteDistOrigin129DC91E7",
+       "ViewerProtocolPolicy": "redirect-to-https"
+      },
+      {
+       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+       "Compress": true,
+       "PathPattern": "/map/stats.json",
+       "TargetOriginId": "HamaroWebSiteDistOrigin129DC91E7",
+       "ViewerProtocolPolicy": "redirect-to-https"
+      },
+      {
+       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+       "Compress": true,
+       "PathPattern": "/map-archive/index.json",
+       "TargetOriginId": "HamaroWebSiteDistOrigin129DC91E7",
+       "ViewerProtocolPolicy": "redirect-to-https"
+      }
+     ],
      "Comment": "Hamaro Minecraft control panel",
      "DefaultCacheBehavior": {
       "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
@@ -349,7 +372,7 @@
      "cdk-hnb659fds-assets-414716064140-us-east-1"
     ],
     "SourceObjectKeys": [
-     "3ca7aa15490d6e3e4c5747a2ebde9593b67b9e8d43b7e9ad5c479ad7faebd586.zip"
+     "3c1e3de7cbbb0f2665a27c8aea17b7e493366c27647a62878c2a6a13349ab2f8.zip"
     ],
     "DestinationBucketName": {
      "Ref": "SiteBucket397A1860"

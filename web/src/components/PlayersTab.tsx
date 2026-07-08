@@ -88,7 +88,7 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
       });
     }).catch(() => {});
   useEffect(() => { loadOnline(); }, [serverUp]);
-  useInterval(loadOnline, 12000);
+  useInterval(loadOnline, 20000); // each call opens 2 real RCON connections server-side — slower is quieter
   useEffect(() => { fetch("/items/index.json").then((r) => r.json()).then(setItems).catch(() => {}); }, []);
   useEffect(() => { api<{ recipes: Record<string, Recipe> }>("/recipes").then((r) => setRecipes(r.recipes)).catch(() => {}); }, []);
 

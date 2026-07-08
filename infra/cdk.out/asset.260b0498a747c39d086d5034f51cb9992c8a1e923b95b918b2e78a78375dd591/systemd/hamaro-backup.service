@@ -1,0 +1,7 @@
+[Unit]
+Description=Hamaro periodic live backup
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/hamaro/backup.sh

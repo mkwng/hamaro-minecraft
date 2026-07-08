@@ -25,7 +25,9 @@ export default function CommandBuilder({ onRun, serverUp }: { onRun: (cmd: strin
     if (!serverUp) return;
     const load = () => api<{ online: OnlinePlayer[] }>("/players").then((r) => setPlayers(r.online.map((p) => p.name))).catch(() => {});
     load();
-    const id = setInterval(() => !document.hidden && load(), 15000);
+    // Each call opens 2 real RCON connections server-side (visible in the server
+    // console) — this only feeds autocomplete, so slower polling stays plenty fresh.
+    const id = setInterval(() => !document.hidden && load(), 25000);
     return () => clearInterval(id);
   }, [serverUp]);
 

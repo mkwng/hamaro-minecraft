@@ -53,6 +53,26 @@ jobs:
           role-to-assume: arn:aws:iam::414716064140:role/hamaro-github-deploy
           aws-region: us-west-2
 
+      # Hard safety gate: the game host is a stateful single instance with an
+      # attached world-data volume. It must NEVER be replaced by a routine
+      # deploy (a prior incident: AWS shipped a newer "latest" AMI, CloudFormation
+      # saw the ImageId change and tried to replace the running instance mid-session
+      # — only disableApiTermination stopped it, and rollback still left an
+      # orphaned billing instance). If a real change genuinely requires replacing
+      # McInstance (new instance type, deliberate AMI bump on maintenance day),
+      # do that deploy manually and locally after backing up, not through this gate.
+      - name: Guard against accidental game-instance replacement
+        if: github.event_name == 'push'
+        working-directory: infra
+        run: |
+          npx cdk diff HamaroGame > /tmp/diff.log 2>&1 || true
+          cat /tmp/diff.log
+          if grep -qE '\[~\] AWS::EC2::Instance McInstance|McInstance.*may be replaced|McInstance.*destroy' /tmp/diff.log; then
+            echo "::error::Blocked: this deploy would replace the game server instance (McInstance)."
+            echo "::error::That must only ever happen deliberately, by hand, after a fresh backup — never via routine CI deploy."
+            exit 1
+          fi
+
       - name: Deploy
         if: github.event_name == 'push'
         working-directory: infra

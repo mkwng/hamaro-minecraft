@@ -17,6 +17,13 @@ export const CONFIG = {
   publicSubnetId: "subnet-c36cfcab",
   availabilityZone: "us-west-2a",
 
+  // Pinned AL2023 ARM64 AMI. Deliberately NOT ec2.MachineImage.latestAmazonLinux2023() —
+  // "latest" re-resolves on every deploy, and when AWS ships a newer base image the
+  // ImageId change forces EC2 instance REPLACEMENT (a stateful single-instance server
+  // must never do this by surprise). Bump this only on the yearly maintenance day,
+  // deliberately, after a backup. See docs/RUNBOOK.md.
+  gameAmiId: "ami-0aca5422add5908e3",
+
   // Pinned versions. Update on the yearly maintenance day (see RUNBOOK).
   mcImageRepo: "hamaro/minecraft-server",
   mcImageTag: "2026.7.0",     // itzg/minecraft-server release
