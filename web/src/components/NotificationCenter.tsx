@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { api, auth, type JoinRequest } from "../api";
+import { api, auth, type JoinRequest, type Status } from "../api";
 import { useInterval } from "../hooks";
 
-// Bell + dropdown in the topbar. Today's notification source is join requests;
-// the item model is generic so future types (reaper events, failed backups)
-// can slot in without redesign.
+// Bell + dropdown in the topbar. Notice sources today: join requests + a
+// server boot-error passed in from status; the item model is generic so
+// future types (reaper events, failed backups) can slot in without redesign.
 type Notice =
   | { kind: "join"; req: JoinRequest }
   | { kind: "info"; text: string };
 
-export default function NotificationCenter() {
+export default function NotificationCenter({ status }: { status?: Status | null } = {}) {
   const [open, setOpen] = useState(false);
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [msg, setMsg] = useState("");
@@ -30,6 +30,9 @@ export default function NotificationCenter() {
 
   if (!auth.token) return null;
   const notices: Notice[] = requests.map((req) => ({ kind: "join", req }));
+  if (status?.server?.bootError) {
+    notices.push({ kind: "info", text: `⚠ server startup problem: ${status.server.lastError || "unknown error"}` });
+  }
 
   const decide = async (username: string, action: "approve" | "deny") => {
     try {

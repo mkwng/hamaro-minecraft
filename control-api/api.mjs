@@ -95,6 +95,36 @@ function envGetList(env, key) {
 
 const NAME_RE = /^[A-Za-z0-9_]{1,16}$/; // Minecraft usernames
 
+// Mojang lookup: true = real account, false = doesn't exist, null = couldn't
+// check (Mojang trouble) — callers should not hard-block on null, since our
+// whitelist feature must not depend on a third party's uptime.
+async function mojangExists(name) {
+  try {
+    const r = await fetch(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(name)}`);
+    if (r.status === 200) return true;
+    if (r.status === 404 || r.status === 204) return false;
+    return null;
+  } catch { return null; }
+}
+
+// Bulk variant for validating many names at once (Settings raw-edit path).
+// Returns the subset of `names` that do NOT resolve to a real account.
+async function mojangInvalidOf(names) {
+  const invalid = [];
+  for (let i = 0; i < names.length; i += 10) {
+    const chunk = names.slice(i, i + 10);
+    try {
+      const r = await fetch("https://api.mojang.com/profiles/minecraft", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(chunk),
+      });
+      if (!r.ok) continue; // Mojang trouble — skip this chunk rather than false-flagging
+      const found = new Set((await r.json()).map((p) => p.name.toLowerCase()));
+      for (const n of chunk) if (!found.has(n.toLowerCase())) invalid.push(n);
+    } catch { /* skip chunk on network error */ }
+  }
+  return invalid;
+}
+
 const b64u = (buf) => buf.toString("base64url");
 
 function scryptAsync(password, salt, len, opts) {
@@ -343,6 +373,16 @@ async function postPlayerRole(body, role /* "whitelist" | "op" */) {
   if (!NAME_RE.test(name || "") || !["add", "remove"].includes(action)) {
     return reply(400, { error: "need a valid Minecraft username and action add|remove" });
   }
+  let note;
+  if (action === "add") {
+    // Catches typos before they can hang the server's startup (a name that
+    // doesn't resolve can wedge whitelist/ops sync during boot).
+    const exists = await mojangExists(name);
+    if (exists === false) {
+      return reply(400, { error: `"${name}" doesn't match a real Minecraft account — check spelling and capitalization` });
+    }
+    if (exists === null) note = "couldn't verify with Mojang right now — added anyway";
+  }
   const key = role === "op" ? "OPS" : "WHITELIST";
   const { name: profile, env } = await activeProfileEnv();
   let list = envGetList(env, key).filter((n) => n.toLowerCase() !== name.toLowerCase());
@@ -357,7 +397,15 @@ async function postPlayerRole(body, role /* "whitelist" | "op" */) {
     const verb = role === "op" ? (action === "add" ? "op" : "deop") : `whitelist ${action}`;
     try { await runCommandSync(rcon(`${verb} ${name}`)); applied = "live"; } catch { applied = "saved; live apply failed"; }
   }
-  return reply(200, { [key.toLowerCase()]: list, applied });
+  return reply(200, { [key.toLowerCase()]: list, applied, note });
+}
+
+// Bulk pre-flight for the Settings raw-env editor: which of these names look
+// fake? Non-blocking (advisory) — the caller decides whether to proceed.
+async function postValidatePlayers(body) {
+  const names = Array.isArray(body?.names) ? [...new Set(body.names)].filter((n) => NAME_RE.test(n)) : [];
+  if (!names.length) return reply(200, { invalid: [] });
+  return reply(200, { invalid: await mojangInvalidOf(names) });
 }
 
 // Online players with position + dimension, one SSM round-trip for all.
@@ -517,6 +565,9 @@ async function postJoinRequest(body) {
   const email = (body?.email || "").trim().toLowerCase();
   if (!NAME_RE.test(username)) return reply(400, { error: "that doesn't look like a Minecraft username" });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply(400, { error: "a valid email is needed so we can tell you when you're approved" });
+  if ((await mojangExists(username)) === false) {
+    return reply(400, { error: `We couldn't find a Minecraft account named "${username}" — double check spelling and capitalization.` });
+  }
 
   const { env } = await activeProfileEnv();
   if (envGetList(env, "WHITELIST").some((n) => n.toLowerCase() === username.toLowerCase())) {
@@ -741,6 +792,7 @@ export async function handler(event) {
     if (method === "PUT" && path === "/schedule") return await putSchedule(body);
     if (method === "POST" && path === "/players/whitelist") return await postPlayerRole(body, "whitelist");
     if (method === "POST" && path === "/players/op") return await postPlayerRole(body, "op");
+    if (method === "POST" && path === "/validate-players") return await postValidatePlayers(body);
     if (method === "POST" && path === "/give") return await postGive(body);
     if (method === "GET" && path === "/warps") return await getWarps(event.queryStringParameters);
     if (method === "POST" && path === "/warps") return await postWarp(body);

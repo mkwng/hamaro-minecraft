@@ -3,7 +3,10 @@ export const API = "https://api.mc.rowan.wang";
 
 export type Status = {
   instance: string;
-  server: { state: string; players: number | null; idleMinutes: number; profile: string; ts: number } | null;
+  server: {
+    state: string; players: number | null; idleMinutes: number; profile: string; ts: number;
+    bootError?: boolean; lastError?: string | null;
+  } | null;
   address: string;
   activeProfile: string;
 };

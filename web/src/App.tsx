@@ -28,6 +28,13 @@ function StatusCard({ status, onStarted }: { status: Status | null; onStarted: (
       }}>▶ Start the server</button>
       {err && <p className="err">{err}</p>}
     </>);
+  } else if (status.instance === "running" && srv?.state === "error") {
+    body = (<>
+      <div className="face">⚠️</div>
+      <div className="statusline">The server hit a startup problem</div>
+      <p className="err" style={{ wordBreak: "break-word" }}>{srv.lastError || "unknown error"}</p>
+      <p className="hint">A grown-up: check World → Settings (a bad whitelist/ops name is the usual cause) or Console → History, fix it, then Save + apply.</p>
+    </>);
   } else if (waking) {
     const pct = Math.min(95, ((Date.now() - (startedAt.current || Date.now() - 30000)) / 120000) * 100);
     body = (<>
@@ -214,7 +221,7 @@ export default function App() {
         <a href="#/" className={"navlink" + (route === "home" ? " active" : "")}>home</a>
         <a href="#/map" className={"navlink" + (route === "map" ? " active" : "")}>map</a>
         <a href="#/admin" className={"navlink" + (route === "admin" ? " active" : "")}>grown-ups</a>
-        <NotificationCenter />
+        <NotificationCenter status={status} />
       </nav>
       {route === "map" ? <MapPage status={status} /> : (
       <main className={route === "admin" ? "wide" : ""}>

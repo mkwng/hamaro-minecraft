@@ -16,7 +16,26 @@ export default function SettingsTab({ profile: profileProp }: { profile?: string
     setEnv((await api<{ env: string }>(`/profiles/${p}`)).env);
   });
 
+  // Catches typo'd whitelist/ops names before they can crash the server's
+  // startup — the exact failure mode that motivated this check.
+  async function namesLookOk() {
+    const names = [...new Set([
+      ...(env.match(/^WHITELIST=(.*)$/m)?.[1] || "").split(",").map((s) => s.trim()).filter(Boolean),
+      ...(env.match(/^OPS=(.*)$/m)?.[1] || "").split(",").map((s) => s.trim()).filter(Boolean),
+    ])];
+    if (!names.length) return true;
+    try {
+      const { invalid } = await api<{ invalid: string[] }>("/validate-players", { method: "POST", body: JSON.stringify({ names }) });
+      if (!invalid.length) return true;
+      return confirm(
+        `These don't look like real Minecraft accounts: ${invalid.join(", ")}\n\n` +
+        `A bad name here can make the server fail to start. Save anyway?`
+      );
+    } catch { return true; } // Mojang unreachable — don't block the save on that
+  }
+
   const save = async (apply: boolean) => {
+    if (!(await namesLookOk())) return;
     try {
       await api(`/profiles/${profile}`, { method: "PUT", body: JSON.stringify({ env }) });
       if (apply) {

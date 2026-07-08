@@ -28,11 +28,35 @@ Written for future-Michael with zero context. The kids were 6 when this was buil
 
 ## Emergency: "the server won't start"
 
-1. Website says starting forever → `aws ec2 describe-instances --region us-west-2` — is the instance running?
+**First look at the website itself** — since July 2026 the watchdog detects a crash-looping
+container (docker restarting the same failure repeatedly) within ~1-2 minutes and shows
+"⚠️ The server hit a startup problem" with the actual error line, instead of spinning on
+"waking up" forever. The 🔔 notification bell surfaces the same thing. This already covers the
+most common cause: a whitelist/ops name that doesn't resolve to a real Mojang account (added via
+raw Settings edit, bypassing the validation the structured Players-tab add path runs). Fix it in
+World → Settings, Save + apply.
+
+If there's no on-screen error, or you need to go deeper:
+1. `aws ec2 describe-instances --region us-west-2` — is the instance actually running?
 2. Shell in via SSM. `systemctl status hamaro-boot` and `journalctl -u hamaro-boot -e` show why boot failed.
 3. `docker logs hamaro-mc` for Minecraft-level failures (bad plugin, corrupt world, wrong Java).
 4. Nuclear option that always works: the world is in S3 backups. Recreate everything:
    `cdk deploy` (rebuild instance) → restore latest backup via website → play.
+
+### Why the whitelist bug happened, and how it's now prevented
+
+A username with a typo or that no longer resolves on Mojang's servers can make the itzg
+container's whitelist-sync step fail on every boot, forever — the container restarts and fails
+the same way each time. Two independent things now stop this:
+- **Adding a name (Players tab, or "Ask to join" approval) checks Mojang before saving.** A name
+  that doesn't resolve is rejected outright, with a clear error.
+- **Editing the raw `WHITELIST=`/`OPS=` lines in World → Settings** runs the same check as a
+  non-blocking warning before saving (`POST /validate-players`) — you can still proceed (e.g. if
+  Mojang is temporarily unreachable), but you're told which names look wrong first.
+
+If a bad name somehow gets in anyway, the watchdog's crash-loop detection (RestartCount ≥ 2)
+catches it within a minute or two and surfaces the actual log line, rather than leaving `/status`
+reading "starting" indefinitely.
 
 ## Emergency: "AWS bill is weird"
 

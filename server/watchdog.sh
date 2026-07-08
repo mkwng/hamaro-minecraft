@@ -16,8 +16,23 @@ if OUT=$(docker exec hamaro-mc mc-monitor status --host 127.0.0.1 --port 25565 2
   PLAYERS=$(echo "$OUT" | grep -oE 'online=[0-9]+' | head -1 | cut -d= -f2)
 fi
 
+# Crash-loop detection: docker's RestartCount climbs fast when the container
+# keeps dying right after start (bad config, corrupt world, OOM). Catching
+# this in ~1-2 minutes beats waiting out the full boot-grace window while
+# /status silently reads "starting" forever.
+BOOT_ERROR=false
+LAST_ERROR=""
+RESTARTS=$(docker inspect -f '{{.RestartCount}}' hamaro-mc 2>/dev/null || echo 0)
+
 if [ -z "$PLAYERS" ]; then
-  if [ "$UPTIME_MIN" -lt "$BOOT_GRACE_MINUTES" ]; then
+  if [ "$RESTARTS" -ge 2 ] 2>/dev/null; then
+    BOOT_ERROR=true
+    STATE="error"
+    LAST_ERROR=$(docker logs hamaro-mc --tail 150 2>&1 \
+      | grep -iE "ERROR|Exception|Could not resolve|Invalid parameter|Failed to " \
+      | tail -1 | cut -c1-300)
+    [ -z "$LAST_ERROR" ] && LAST_ERROR="container is restarting repeatedly (restart count: ${RESTARTS})"
+  elif [ "$UPTIME_MIN" -lt "$BOOT_GRACE_MINUTES" ]; then
     STATE="starting"            # server still booting — don't count against it yet
   else
     STATE="unreachable"         # crashed/OOM/won't start — counts as idle
@@ -80,10 +95,25 @@ if /opt/hamaro/gen-markers.sh /tmp/hamaro-players.txt > /tmp/custom.markers.js 2
   aws s3 cp /tmp/custom.markers.js "s3://${SITE_BUCKET}/map/custom.markers.js" \
     --cache-control "no-cache, no-store" --content-type "application/javascript" >/dev/null 2>&1 || true
 fi
-aws ssm put-parameter --name /hamaro/heartbeat --type String --overwrite --value "{
-  \"ts\": $(date +%s), \"state\": \"${STATE}\", \"players\": ${PLAYERS:-null},
-  \"idleMinutes\": ${IDLE}, \"profile\": \"${PROFILE}\", \"uptimeMinutes\": ${UPTIME_MIN}
-}" >/dev/null || echo "[watchdog] WARN: heartbeat publish failed"
+# Built with python (not string interpolation) so LAST_ERROR's arbitrary text
+# — quotes, backslashes, whatever's in a stack trace — can never corrupt the
+# JSON the way raw shell interpolation did.
+HEARTBEAT_JSON=$(PROFILE="$PROFILE" STATE="$STATE" PLAYERS="${PLAYERS:-}" IDLE="$IDLE" \
+  UPTIME_MIN="$UPTIME_MIN" BOOT_ERROR="$BOOT_ERROR" LAST_ERROR="$LAST_ERROR" python3 -c '
+import json, os, time
+players = os.environ.get("PLAYERS")
+print(json.dumps({
+    "ts": int(time.time()),
+    "state": os.environ["STATE"],
+    "players": int(players) if players else None,
+    "idleMinutes": int(os.environ["IDLE"]),
+    "profile": os.environ["PROFILE"],
+    "uptimeMinutes": int(os.environ["UPTIME_MIN"]),
+    "bootError": os.environ["BOOT_ERROR"] == "true",
+    "lastError": os.environ.get("LAST_ERROR") or None,
+}))')
+aws ssm put-parameter --name /hamaro/heartbeat --type String --overwrite --value "$HEARTBEAT_JSON" >/dev/null \
+  || echo "[watchdog] WARN: heartbeat publish failed"
 
 if [ "$IDLE" -ge "$IDLE_MINUTES" ]; then
   echo "[watchdog] ${IDLE} idle minutes — backing up and shutting down"
