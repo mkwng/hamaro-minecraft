@@ -34,6 +34,13 @@ export interface Config {
   hamaroActiveProfile: string | undefined;
   /** SSM parameter naming the active profile. */
   hamaroActiveProfileParam: string;
+  /**
+   * Admin session-token signing key (same as control-api's /hamaro/session-key).
+   * Set only for dev/dry-run; in prod it is read from the SSM parameter below.
+   */
+  sessionKey: string | undefined;
+  /** SSM SecureString parameter holding the admin session signing key. */
+  sessionKeyParam: string;
   mcServerAddress: string;
   port: number;
   inviteTtlMinutes: number;
@@ -121,6 +128,8 @@ export function loadConfig(): Config {
     awsRegion: optional('AWS_REGION') ?? 'us-west-2',
     hamaroActiveProfile: optional('HAMARO_ACTIVE_PROFILE'),
     hamaroActiveProfileParam: optional('HAMARO_ACTIVE_PROFILE_PARAM') ?? '/hamaro/active-profile',
+    sessionKey: optional('HAMARO_SESSION_KEY'),
+    sessionKeyParam: optional('HAMARO_SESSION_KEY_PARAM') ?? '/hamaro/session-key',
     mcServerAddress: required('MC_SERVER_ADDRESS'),
     port: intWithDefault('PORT', 3000),
     inviteTtlMinutes: intWithDefault('INVITE_TTL_MINUTES', 15),

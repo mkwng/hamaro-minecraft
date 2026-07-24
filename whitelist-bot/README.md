@@ -33,7 +33,7 @@ actually owns the game, not whatever name someone typed.
 - [How the whitelist is persisted](#how-the-whitelist-is-persisted)
 - [Environment variables](#environment-variables)
 - [Running locally](#running-locally) · [Deploying](#deploying)
-- [Commands](#commands) · [Testing status](#testing-status) · [Security notes](#security-notes)
+- [Commands](#commands) · [Dashboard invite links](#dashboard-invite-links) · [Testing status](#testing-status) · [Security notes](#security-notes)
 
 ## Operator setup
 
@@ -162,6 +162,8 @@ pass real env vars. Secrets are set on the host, never committed.
 | `AWS_REGION` | no | `us-west-2` | Region for S3/SSM. |
 | `HAMARO_ACTIVE_PROFILE` | no | *(from SSM)* | Pin the profile name instead of reading the parameter. |
 | `HAMARO_ACTIVE_PROFILE_PARAM` | no | `/hamaro/active-profile` | SSM parameter naming the active profile. |
+| `HAMARO_SESSION_KEY` | no | *(read from SSM)* | Dev/dry-run override of the admin session signing key; leave unset in prod. |
+| `HAMARO_SESSION_KEY_PARAM` | no | `/hamaro/session-key` | SSM SecureString with control-api's session signing key (verifies dashboard tokens). |
 | `MC_SERVER_ADDRESS` | yes | — | Address shown to players on the success page. |
 | `PORT` | no | `3000` | HTTP listen port. |
 | `INVITE_TTL_MINUTES` | no | `15` | Lifetime of `/whitelist` self-serve links. |
@@ -201,6 +203,37 @@ The web flow works for people who never touch Discord: the success page just
 says "You're whitelisted as `<name>`. Connect to `mc.rowan.wang`." (plus the
 optional Discord link).
 
+## Dashboard invite links
+
+The control panel's **Players** tab has a "Generate invite link" control
+(uses + expiry) so grown-ups can mint a link without Discord. It calls
+`POST /admin/invite` on the bot with the panel's existing bearer session
+token — the same one `control-api` issues at login. The bot verifies that
+token **exactly like `control-api/api.mjs` does** (`<exp>.<who>.<hmac>`,
+HMAC-SHA256 with the SecureString `/hamaro/session-key`, constant-time
+compare, expiry + `magic:` links rejected), so admin auth has one source of
+truth: sign in to the panel and you're signed in to this too.
+
+```
+POST /admin/invite
+Authorization: Bearer <panel session token>
+Content-Type: application/json
+{ "uses": 1, "ttlMinutes": 1440 }        # both optional
+
+200 { "url": "https://hamaro.rowan.wang/invite/<token>", "expiresAt": "…ISO…", "uses": 1 }
+401 { "error": "admin login required" }   # missing/invalid/expired token
+400 { "error": "…" }                        # non-integer / malformed body
+```
+
+`uses` is clamped to 1–50 (default 1), `ttlMinutes` to 1–10080 (default 1440
+= 24 h). It mints from the same store as the Discord `/invite` command, so the
+links behave identically. The endpoint is same-origin with the panel (served
+under the site by CloudFront's `/admin/*` behavior — see Deploying), so there
+is no CORS at all; the panel's token never goes cross-origin. In prod there is
+nothing to configure: the game host's instance role can read
+`/hamaro/session-key`. For local dev set `HAMARO_SESSION_KEY` (bot) and
+`VITE_WHITELIST_BOT_BASE=http://localhost:3000` (web).
+
 ## Deploying
 
 Target: the bot runs on the **game host** next to the MC container, and its
@@ -210,7 +243,7 @@ routes are served on the main site domain — invite links look like
 
 **How the routing works (all in the CDK, `infra/`):** `hamaro.rowan.wang` is
 S3 + CloudFront (`WebStack`, `infra/lib/web-stack.ts`, us-east-1). This PR
-adds three CloudFront behaviors — `/invite/*`, `/auth/*`, `/healthz` — with
+adds four CloudFront behaviors — `/invite/*`, `/auth/*`, `/admin/*`, `/healthz` — with
 caching disabled and query strings forwarded, that proxy **over HTTPS**
 (`https-only`, TLS ≥ 1.2) to the game host, addressed by its existing A record
 `mc.rowan.wang` (`server/boot.sh` re-points it at the box's current IP on

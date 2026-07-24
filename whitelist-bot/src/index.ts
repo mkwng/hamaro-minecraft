@@ -10,6 +10,7 @@ import { createDiscordClient, registerCommands } from './discordBot.js';
 import { createApp, MsalMicrosoftAuth } from './webServer.js';
 import { RconClient } from './rcon.js';
 import { S3ProfileStore } from './profileStore.js';
+import { AdminAuth } from './adminAuth.js';
 import { DryRunWhitelister, HamaroWhitelister, type Whitelister } from './whitelist.js';
 import { fetchMinecraftProfile } from './minecraftAuth.js';
 
@@ -52,6 +53,11 @@ async function main(): Promise<void> {
     msAuth: new MsalMicrosoftAuth(config),
     whitelist,
     fetchProfile: fetchMinecraftProfile,
+    adminAuth: new AdminAuth({
+      sessionKey: config.sessionKey,
+      sessionKeyParam: config.sessionKeyParam,
+      region: config.awsRegion,
+    }),
   });
 
   const server = app.listen(config.port, () => {

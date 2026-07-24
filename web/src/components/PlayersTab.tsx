@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, bus, WARP_GLYPHS, type OnlinePlayer, type Warp, type InvItem } from "../api";
+import { api, botApi, bus, WARP_GLYPHS, type OnlinePlayer, type Warp, type InvItem } from "../api";
 import { useAsync, useInterval } from "../hooks";
 import { useOpStatus } from "./AdminPanel";
 import Drawer from "./Drawer";
@@ -48,6 +48,54 @@ function RoleList({ title, subtitle, role, names, onChange }: {
           onKeyDown={(e) => e.key === "Enter" && name && (act(name, "add"), setName(""))} />
         <button onClick={() => { if (name) { act(name, "add"); setName(""); } }}>Add</button>
       </div>
+    </>
+  );
+}
+
+// Mint a whitelist invite link (whitelist-bot's POST /admin/invite) for someone
+// who isn't in Discord: they open it, sign in with the Microsoft account that
+// owns Minecraft, and their real profile is whitelisted automatically.
+function InviteLinkBox() {
+  const [uses, setUses] = useState("1");
+  const [hours, setHours] = useState("24");
+  const [link, setLink] = useState<{ url: string; expiresAt: string; uses: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const generate = async () => {
+    setBusy(true); setErr(""); setLink(null); setCopied(false);
+    try {
+      const r = await botApi<{ url: string; expiresAt: string; uses: number }>("/admin/invite", {
+        method: "POST",
+        body: JSON.stringify({ uses: Math.round(Number(uses)) || 1, ttlMinutes: (Math.round(Number(hours)) || 24) * 60 }),
+      });
+      setLink(r);
+    } catch (e: any) {
+      setErr(e?.status === 401 ? "sign in again to mint invites" : e?.status === undefined ? "can't reach the whitelist bot right now" : e.message);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <>
+      <h3>Invite link <span className="hint">(for someone not in Discord — Microsoft sign-in, auto-whitelisted)</span></h3>
+      <div className="row">
+        <input className="short" type="number" min={1} max={50} value={uses} onChange={(e) => setUses(e.target.value)} title="how many players can use it" />
+        <span className="hint">uses ·</span>
+        <input className="short" type="number" min={1} max={168} value={hours} onChange={(e) => setHours(e.target.value)} title="hours until it stops working" />
+        <span className="hint">hours</span>
+        <button disabled={busy} onClick={generate}>{busy ? "…" : "Generate invite link"}</button>
+      </div>
+      {link && (
+        <div className="row">
+          <code className="addr" style={{ fontSize: ".75rem", wordBreak: "break-all" }}>{link.url}</code>
+          <button onClick={async () => { await navigator.clipboard.writeText(link.url); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
+            {copied ? "Copied!" : "Copy"}
+          </button>
+          <span className="hint">{link.uses} use{link.uses === 1 ? "" : "s"} · until {new Date(link.expiresAt).toLocaleString()}</span>
+        </div>
+      )}
+      {err && <p className="err">{err}</p>}
     </>
   );
 }
@@ -353,6 +401,7 @@ export default function PlayersTab({ serverUp }: { serverUp: boolean }) {
         </>}
       </>}
 
+      <InviteLinkBox />
       {wl && <RoleList title="Whitelist" subtitle="who can join — instant, no restart" role="whitelist" names={wl} onChange={setWl} />}
       {ops && <RoleList title="Ops (admins in game)" role="op" names={ops} onChange={setOps} />}
     </div>

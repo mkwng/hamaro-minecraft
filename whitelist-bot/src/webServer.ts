@@ -11,6 +11,8 @@ import { ConfidentialClientApplication } from '@azure/msal-node';
 import type { Config } from './config.js';
 import type { InviteStatus, InviteStore } from './inviteStore.js';
 import type { Whitelister } from './whitelist.js';
+import type { AdminAuth } from './adminAuth.js';
+import { mintAdminInvite } from './adminInvites.js';
 import { escapeHtml, renderPage } from './html.js';
 import { formatUuid, MinecraftAuthError, type MinecraftProfile } from './minecraftAuth.js';
 
@@ -63,6 +65,19 @@ export interface WebServerDeps {
   msAuth: MicrosoftAuth;
   whitelist: Whitelister;
   fetchProfile: (msAccessToken: string) => Promise<MinecraftProfile>;
+  adminAuth: AdminAuth;
+}
+
+// POST /admin/invite limits (the Discord /invite command has its own).
+export const WEB_INVITE_LIMITS = {
+  uses: { min: 1, max: 50, default: 1 },
+  ttlMinutes: { min: 1, max: 7 * 24 * 60, default: 24 * 60 },
+} as const;
+
+function clampInt(value: unknown, limits: { min: number; max: number; default: number }): number | undefined {
+  if (value === undefined || value === null) return limits.default;
+  if (typeof value !== 'number' || !Number.isInteger(value)) return undefined;
+  return Math.min(limits.max, Math.max(limits.min, value));
 }
 
 /** OAuth `state` = "<inviteToken>.<nonce>". */
@@ -100,9 +115,11 @@ function sendDeadLinkPage(res: Response, httpStatus: number, tokenStatus: Invite
 }
 
 export function createApp(deps: WebServerDeps): express.Express {
-  const { config, store, msAuth, whitelist, fetchProfile } = deps;
+  const { config, store, msAuth, whitelist, fetchProfile, adminAuth } = deps;
   const app = express();
   app.disable('x-powered-by');
+  // No CORS headers on any route: the dashboard calls /admin/* same-origin
+  // (both live behind hamaro.rowan.wang), so nothing cross-origin is allowed.
 
   app.get('/healthz', (_req: Request, res: Response) => {
     res.type('text/plain').send('ok');
@@ -123,6 +140,47 @@ export function createApp(deps: WebServerDeps): express.Express {
       res.status(403).type('text/plain').send('forbidden');
     });
   }
+
+  // Dashboard: mint a whitelist invite link. Auth = the control panel's own
+  // session token (verified exactly like control-api does). 401 = missing /
+  // invalid / expired token; body limits are clamped, not rejected.
+  app.post(
+    '/admin/invite',
+    express.json({ limit: '1kb' }),
+    async (req: Request, res: Response, next) => {
+      try {
+        let who: string | null;
+        try {
+          who = await adminAuth.verifyAuthorizationHeader(req.get('authorization'));
+        } catch (err) {
+          console.error('[admin] cannot verify session (signing key unavailable):', err instanceof Error ? err.message : err);
+          res.status(503).json({ error: 'admin auth unavailable' });
+          return;
+        }
+        if (!who) {
+          res.status(401).json({ error: 'admin login required' });
+          return;
+        }
+
+        const body = (req.body ?? {}) as Record<string, unknown>;
+        const uses = clampInt(body.uses, WEB_INVITE_LIMITS.uses);
+        const ttlMinutes = clampInt(body.ttlMinutes, WEB_INVITE_LIMITS.ttlMinutes);
+        if (uses === undefined || ttlMinutes === undefined) {
+          res.status(400).json({ error: 'uses and ttlMinutes must be integers' });
+          return;
+        }
+
+        const minted = mintAdminInvite(store, config.publicBaseUrl, {
+          uses,
+          ttlMinutes,
+          issuedByTag: `web:${who}`,
+        });
+        res.status(200).json(minted);
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
 
   // Step 1: user clicks an invite link (from /whitelist or an admin's /invite).
   app.get('/invite/:token', async (req: Request, res: Response, next) => {
@@ -252,6 +310,10 @@ export function createApp(deps: WebServerDeps): express.Express {
   });
 
   app.use((err: unknown, _req: Request, res: Response, _next: express.NextFunction) => {
+    if (err instanceof SyntaxError && 'body' in err) {
+      res.status(400).json({ error: 'malformed JSON body' });
+      return;
+    }
     console.error('[web] unhandled error:', err);
     sendPage(res, 500, 'Something went wrong', '<p>Please try again in a moment.</p>');
   });

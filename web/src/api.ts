@@ -1,5 +1,9 @@
 // API client. The custom domain is stable forever, so this never changes.
 export const API = "https://api.mc.rowan.wang";
+// Whitelist bot (whitelist-bot/): served same-origin under /admin/* via
+// CloudFront on this very site, so the default base is relative. Override for
+// local dev with VITE_WHITELIST_BOT_BASE=http://localhost:3000.
+export const BOT_API = (import.meta.env.VITE_WHITELIST_BOT_BASE || "").replace(/\/+$/, "");
 
 export type Status = {
   instance: string;
@@ -58,6 +62,18 @@ export async function api<T = any>(path: string, opts: RequestInit = {}): Promis
   const res = await fetch(API + path, { ...opts, headers });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && token && !path.startsWith("/login")) auth.clear();
+  if (!res.ok) throw new ApiError((data as any).error || res.statusText, res.status);
+  return data as T;
+}
+
+// Same as api() but targets the whitelist bot (same session token — the bot
+// verifies it exactly like control-api does).
+export async function botApi<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = { "content-type": "application/json", ...(opts.headers as any) };
+  if (token) headers.authorization = "Bearer " + token;
+  const res = await fetch(BOT_API + path, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && token) auth.clear();
   if (!res.ok) throw new ApiError((data as any).error || res.statusText, res.status);
   return data as T;
 }

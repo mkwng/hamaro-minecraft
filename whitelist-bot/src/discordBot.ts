@@ -18,6 +18,7 @@ import {
 } from 'discord.js';
 import type { Config } from './config.js';
 import type { InviteStore } from './inviteStore.js';
+import { inviteUrl, mintAdminInvite } from './adminInvites.js';
 
 export const WHITELIST_COMMAND = 'whitelist';
 export const INVITE_COMMAND = 'invite';
@@ -81,11 +82,6 @@ export async function registerCommands(options: RegisterCommandsOptions): Promis
 export interface DiscordBotOptions {
   config: Pick<Config, 'publicBaseUrl' | 'inviteTtlMinutes' | 'adminRoleId'>;
   store: InviteStore;
-}
-
-/** Builds the invite URL for a token. */
-export function inviteUrl(publicBaseUrl: string, token: string): string {
-  return `${publicBaseUrl}/invite/${token}`;
 }
 
 export function createDiscordClient(options: DiscordBotOptions): Client {
@@ -152,15 +148,11 @@ async function handleInvite(
 
   const uses = interaction.options.getInteger('count') ?? INVITE_DEFAULT_USES;
   const hours = interaction.options.getInteger('expires-in') ?? INVITE_DEFAULT_HOURS;
-  const invite = options.store.createAdminInvite({
+  const { url } = mintAdminInvite(options.store, options.config.publicBaseUrl, {
     uses,
-    ttlMs: hours * 60 * 60 * 1000,
+    ttlMinutes: hours * 60,
     issuedByTag: interaction.user.tag,
   });
-  const url = inviteUrl(options.config.publicBaseUrl, invite.token);
-  console.log(
-    `[discord] /invite: ${interaction.user.tag} minted a ${uses}-use, ${hours}h invite (${invite.token.slice(0, 6)}…)`,
-  );
 
   await interaction.reply({
     content:

@@ -57,6 +57,8 @@ export class WebStack extends Stack {
         originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
         customHeaders: verifySecret ? { [C.botOriginVerifyHeader]: verifySecret } : undefined,
       });
+      // ALL_VIEWER_EXCEPT_HOST_HEADER forwards query strings + all viewer
+      // headers (incl. Authorization for the dashboard's /admin/* calls).
       const botBehavior: cloudfront.BehaviorOptions = {
         origin: botOrigin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -67,6 +69,10 @@ export class WebStack extends Stack {
       botBehaviors["/invite/*"] = botBehavior;
       botBehaviors["/auth/*"] = botBehavior;
       botBehaviors["/healthz"] = botBehavior;
+      // Dashboard-authenticated JSON endpoints (POST /admin/invite): same
+      // origin as the panel, so no CORS; the bot verifies the panel's own
+      // bearer session token exactly like control-api does.
+      botBehaviors["/admin/*"] = { ...botBehavior, allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL };
     }
 
     const dist = new cloudfront.Distribution(this, "SiteDist", {
