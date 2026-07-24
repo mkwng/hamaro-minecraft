@@ -208,6 +208,9 @@ h3::before { content: "// "; color: var(--green); }
   font-size: .85rem; letter-spacing: .05em;
 }
 .linkbtn:hover { border-color: var(--cyan); }
+/* Discord invite variant — shown only when VITE_DISCORD_INVITE_URL is set at build time */
+.linkbtn.discord { color: #96a5f7; margin-left: 8px; }
+.linkbtn.discord:hover { border-color: #96a5f7; }
 
 /* ---------- tabs (hex-labeled; horizontal scroll on mobile) ---------- */
 .tabs {

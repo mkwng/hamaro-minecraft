@@ -1,0 +1,8 @@
+# Caddy on the game host: terminates TLS for the CloudFront origin hostname
+# (the box's own A record) with an automatic ACME cert, and reverse-proxies
+# the whitelist bot's routes to the bot on localhost:3000. CloudFront
+# (hamaro.rowan.wang) is the only intended client; the bot additionally
+# checks the X-Origin-Verify header CloudFront adds (ORIGIN_VERIFY_SECRET).
+mc.rowan.wang {
+	reverse_proxy 127.0.0.1:3000
+}

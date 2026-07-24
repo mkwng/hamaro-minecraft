@@ -4,6 +4,9 @@ import { useInterval } from "./hooks";
 import AdminPanel from "./components/AdminPanel";
 import NotificationCenter from "./components/NotificationCenter";
 
+// Public Discord invite (build-time env). Unset → the button is hidden.
+const DISCORD_INVITE_URL = (import.meta.env.VITE_DISCORD_INVITE_URL || "").trim();
+
 function StatusCard({ status, onStarted }: { status: Status | null; onStarted: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -68,6 +71,9 @@ function StatusCard({ status, onStarted }: { status: Status | null; onStarted: (
       {body}
       <div className="row center">
         <a className="linkbtn" href="#/map">🗺️ World map</a>
+        {DISCORD_INVITE_URL && (
+          <a className="linkbtn discord" href={DISCORD_INVITE_URL} target="_blank" rel="noopener">💬 Join our Discord</a>
+        )}
       </div>
     </section>
   );

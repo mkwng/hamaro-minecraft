@@ -37,6 +37,29 @@ export const CONFIG = {
   budgetWarnUsd: 20,
   budgetAlarmUsd: 35,
 
+  // Whitelist bot (whitelist-bot/): the Discord /whitelist service runs on the
+  // game host and is fronted by the same CloudFront distribution as the site —
+  // /invite/*, /auth/* and /healthz on hamaro.rowan.wang are proxied over HTTPS
+  // to https://<botOriginDomain> (Caddy on the host terminates TLS with an
+  // ACME cert for that name and reverse-proxies to the bot on localhost:3000).
+  // The game host's own A record (mc.rowan.wang, upserted by server/boot.sh) is
+  // that name. Set botOriginDomain to "" to disable the proxying entirely.
+  botOriginDomain: "mc.rowan.wang",
+  // Shared secret CloudFront sends as X-Origin-Verify (the bot rejects proxied
+  // routes without it => the origin can't be hit around the CDN). Supplied at
+  // deploy time via context, never committed:
+  //   cdk deploy HamaroWeb -c botOriginVerifySecret="$(openssl rand -hex 32)"
+  // and the same value goes in the bot's ORIGIN_VERIFY_SECRET env. Omit the
+  // context to deploy without the header (bot then relies on the SG only).
+  botOriginVerifyHeader: "X-Origin-Verify",
+  // AWS-managed prefix list "com.amazonaws.global.cloudfront.origin-facing" in
+  // us-west-2 — port 443 on the game host is opened ONLY to CloudFront's
+  // origin-facing IPs (port 80 stays open to the world for ACME HTTP-01).
+  // Verify before deploying:
+  //   aws ec2 describe-managed-prefix-lists --region us-west-2 \
+  //     --filters Name=prefix-list-name,Values=com.amazonaws.global.cloudfront.origin-facing
+  cloudfrontOriginPrefixListId: "pl-82a045eb",
+
   // Website bucket + distribution (WebStack, us-east-1) — referenced by the game
   // instance to publish the public terrain map at /map/.
   siteBucketName: "hamaroweb-sitebucket397a1860-vvfauro7hkzh",
