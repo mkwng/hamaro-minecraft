@@ -42,6 +42,7 @@ docker run -d --name hamaro-mc \
   --restart unless-stopped \
   --stop-timeout 120 \
   -p 25565:25565 \
+  -p 127.0.0.1:25575:25575 \
   --env-file "${PROFILE_DIR}/profile.env" \
   -e EULA=TRUE -e ENABLE_RCON=true \
   -v "${PROFILE_DIR}/data:/data" \

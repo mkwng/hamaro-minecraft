@@ -41,6 +41,34 @@ export class WebStack extends Stack {
       viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
     };
+    // Whitelist bot (whitelist-bot/): its routes live on the same domain, so
+    // CloudFront proxies them to the bot on the game host — over HTTPS end to
+    // end (Caddy on the host holds an ACME cert for the origin name and
+    // reverse-proxies to the bot on localhost:3000). The OAuth callback carries
+    // MS auth codes + invite tokens, so this hop must never be plaintext. A
+    // shared-secret custom origin header (context: botOriginVerifySecret) lets
+    // the bot refuse anything that didn't come through this distribution.
+    // Never cached; query strings must reach the callback intact.
+    const botBehaviors: Record<string, cloudfront.BehaviorOptions> = {};
+    if (C.botOriginDomain) {
+      const verifySecret = this.node.tryGetContext("botOriginVerifySecret") as string | undefined;
+      const botOrigin = new origins.HttpOrigin(C.botOriginDomain, {
+        protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+        originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
+        customHeaders: verifySecret ? { [C.botOriginVerifyHeader]: verifySecret } : undefined,
+      });
+      const botBehavior: cloudfront.BehaviorOptions = {
+        origin: botOrigin,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+      };
+      botBehaviors["/invite/*"] = botBehavior;
+      botBehaviors["/auth/*"] = botBehavior;
+      botBehaviors["/healthz"] = botBehavior;
+    }
+
     const dist = new cloudfront.Distribution(this, "SiteDist", {
       defaultBehavior: {
         origin,
@@ -51,6 +79,7 @@ export class WebStack extends Stack {
         "/map/custom.markers.js": noCache,
         "/map/stats.json": noCache,
         "/map-archive/index.json": noCache,
+        ...botBehaviors,
       },
       defaultRootObject: "index.html",
       domainNames: [C.webDomain],

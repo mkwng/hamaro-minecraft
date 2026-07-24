@@ -113,6 +113,19 @@ export class GameStack extends Stack {
       allowAllOutbound: true,
     });
     sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(25565), "Minecraft Java");
+    if (C.botOriginDomain) {
+      // whitelist-bot: CloudFront (WebStack) proxies /invite/*, /auth/*, /healthz
+      // over HTTPS to Caddy on this host (which reverse-proxies to the bot on
+      // localhost:3000). 443 is open only to CloudFront's origin-facing ranges;
+      // 80 is open for ACME HTTP-01 cert issuance/renewal (Caddy redirects the
+      // rest). The bot port (3000) and RCON (25575) are never exposed at all.
+      sg.addIngressRule(
+        ec2.Peer.prefixList(C.cloudfrontOriginPrefixListId),
+        ec2.Port.tcp(443),
+        "Whitelist bot via Caddy (CloudFront origin-facing only)",
+      );
+      sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), "ACME HTTP-01 for the bot origin cert");
+    }
 
     const role = new iam.Role(this, "InstanceRole", {
       assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),

@@ -28,6 +28,7 @@ control website. Everything is defined in AWS CDK under `infra/`.
 | `control-api/` | Lambda handlers. Plain JavaScript, **zero npm dependencies** (survives Node runtime bumps with a one-line change). |
 | `web/` | The control website: Vite + React + TS. **`dist/` is committed** so the site stays deployable even if the toolchain rots. |
 | `server/` | Everything that runs ON the instance: boot, watchdog (idle-sleep + live map markers), backup, restore, map render. Synced from S3 on every boot — edit here, `cdk deploy`, reboot. |
+| `whitelist-bot/` | Discord `/whitelist` + `/invite` bot: players self-whitelist via Microsoft login (real Mojang profile → RCON). Own README with the Discord/Azure setup. |
 | `scripts/` | One-time/maintenance helpers: admin password, Gandi DNS delegation, item-icon mirror, seeding. |
 | `docs/` | **Start with `docs/RUNBOOK.md`.** Restore drills, DNS setup, yearly maintenance. |
 

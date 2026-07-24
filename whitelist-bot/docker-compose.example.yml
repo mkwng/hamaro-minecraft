@@ -1,0 +1,38 @@
+# Example: run on the GAME HOST next to the existing `hamaro-mc` container
+# (which server/boot.sh starts, publishing RCON on 127.0.0.1:25575 only).
+# The bot uses host networking so RCON_HOST=127.0.0.1 reaches that loopback
+# port; Caddy terminates TLS for the CloudFront origin hostname and proxies
+# to the bot on 127.0.0.1:3000. Only 80 (ACME) and 443 (CloudFront-only, via
+# the security group) are reachable from outside; 3000 and 25575 never are.
+services:
+  whitelist-bot:
+    build: .
+    restart: unless-stopped
+    network_mode: host          # -> RCON at 127.0.0.1:25575, bot listens on 127.0.0.1:3000
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_INVITE_URL: https://discord.gg/73K2NaWXmT
+      AZURE_CLIENT_ID: d364007e-61ae-4a85-a09a-56f83b4691bd
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+      OAUTH_REDIRECT_URI: https://hamaro.rowan.wang/auth/callback
+      RCON_HOST: 127.0.0.1
+      RCON_PORT: "25575"
+      RCON_PASSWORD: ${RCON_PASSWORD}   # must equal RCON_PASSWORD in the active profile.env
+      MC_SERVER_ADDRESS: mc.rowan.wang
+      HAMARO_BUCKET: ${HAMARO_BUCKET}   # data bucket -> durable whitelist in profile.env
+      AWS_REGION: us-west-2
+      ORIGIN_VERIFY_SECRET: ${ORIGIN_VERIFY_SECRET}   # same value passed to `cdk deploy -c botOriginVerifySecret=...`
+      PORT: "3000"
+      INVITE_TTL_MINUTES: "15"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    network_mode: host          # binds :80/:443 on the host
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data          # ACME certs survive restarts
+volumes:
+  caddy-data: {}
