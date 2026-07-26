@@ -3,12 +3,67 @@ import { api, watchOp } from "../api";
 import { useAsync } from "../hooks";
 import { useOpStatus } from "./AdminPanel";
 
+type UpdateInfo = {
+  current: string; checkable: boolean; note?: string;
+  patch?: string | null; family?: string | null; upToDate?: boolean;
+};
+
+// The clickops path to a new Minecraft version: check, press, done. The raw
+// env editor below stays the escape hatch for everything else.
+function VersionCard({ profile, onUpdated }: { profile: string; onUpdated: () => void }) {
+  const flash = useOpStatus();
+  const [info, reload] = useAsync(() => api<UpdateInfo>(`/profiles/${profile}/updates`), [profile]);
+  const [busy, setBusy] = useState(false);
+
+  const update = async (version: string, blurb: string) => {
+    if (!confirm(
+      `Update "${profile}" to Minecraft ${version}?\n\n${blurb}\n\n` +
+      `The world is backed up first, then the new version applies (restarting the server if this world is live). ` +
+      `World upgrades are ONE-WAY — there's no downgrade, only restoring the backup.`
+    )) return;
+    setBusy(true);
+    try {
+      const res = await api<{ commandId?: string; note?: string }>(`/profiles/${profile}/update`, {
+        method: "POST", body: JSON.stringify({ version }),
+      });
+      if (res.commandId) {
+        flash(`Updating to ${version} — backing up, then restarting…`);
+        const r = await watchOp(res.commandId, (s) => flash(`Updating to ${version}… (${s})`));
+        flash(r.status === "Success" ? `✔ now on Minecraft ${version}` : `✖ update ${r.status}: ${r.error || "check Backups to restore if needed"}`);
+      } else {
+        flash(`✔ pinned ${version} — ${res.note || "applies on next start"}`);
+      }
+      reload(); onUpdated();
+    } catch (e: any) { flash("✖ " + e.message); }
+    setBusy(false);
+  };
+
+  if (!info) return <p className="hint">Minecraft version: checking for updates…</p>;
+  return (
+    <div className="row" style={{ alignItems: "center", flexWrap: "wrap" }}>
+      <span>Minecraft <b>{info.current || "?"}</b></span>
+      {!info.checkable && <span className="hint">{info.note}</span>}
+      {info.upToDate && <span className="hint">✔ up to date</span>}
+      {info.patch && (
+        <button disabled={busy} onClick={() => update(info.patch!, "This is a bugfix release — same content, just fixes.")}>
+          Update to {info.patch} (bugfix)
+        </button>
+      )}
+      {info.family && (
+        <button disabled={busy} onClick={() => update(info.family!, "This is a NEW-CONTENT version (possibly new biomes, blocks, mobs) — gather the kids!")}>
+          ✨ Update to {info.family} (new content)
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsTab({ profile: profileProp }: { profile?: string } = {}) {
   const flash = useOpStatus();
   const [profile, setProfile] = useState("");
   const [active, setActive] = useState("");
   const [env, setEnv] = useState("");
-  useAsync(async () => {
+  const [, reloadEnv] = useAsync(async () => {
     const r = await api<{ active: string }>("/profiles");
     const p = profileProp || r.active;
     setActive(r.active);
@@ -53,6 +108,7 @@ export default function SettingsTab({ profile: profileProp }: { profile?: string
 
   return (
     <>
+      {profile && <VersionCard profile={profile} onUpdated={reloadEnv} />}
       <p>Settings for profile <b>{profile}</b> — any{" "}
         <a href="https://docker-minecraft-server.readthedocs.io/" target="_blank" rel="noopener">itzg variable</a> works.{" "}
         <code>VERSION</code> must stay pinned (never LATEST).</p>
