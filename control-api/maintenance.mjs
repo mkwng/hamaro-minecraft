@@ -175,7 +175,7 @@ export async function handler() {
   const notifyKey = `${familyCandidate || ""}|${itzgUpdate || ""}`;
   if ((familyCandidate || itzgUpdate) && state.lastNotified !== notifyKey) {
     const lines = [];
-    if (familyCandidate) lines.push(`A new Minecraft version is available: ${current.family} -> ${familyCandidate}. This likely has new content (biomes, blocks, etc.) — apply it from World -> Settings when the family wants to see what's new, not silently overnight.`);
+    if (familyCandidate) lines.push(`A new Minecraft version is available: ${current.family} -> ${familyCandidate}. This likely has new content (biomes, blocks, etc.) — when the family wants to see what's new, it's one press of the "Update" button in World -> Settings (it backs up first). Not applied silently overnight, by design.`);
     if (itzgUpdate) lines.push(`A newer server-software release is available: ${MC_IMAGE_TAG} -> ${itzgUpdate}. Bump mcImageTag in infra/lib/config.ts and deploy when convenient (see RUNBOOK).`);
     await notify("Hamaro Minecraft: update(s) available", lines.join("\n\n"));
     await writeJson("config/maintenance-state.json", { lastNotified: notifyKey, ts: new Date().toISOString() });

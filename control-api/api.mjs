@@ -6,6 +6,7 @@
 // Auth:    POST /login {password} -> bearer token (24 h)
 // Admin:   POST /stop | GET /profiles | GET/PUT /profiles/{name}
 //          POST /profiles/{name}/activate | POST /command {command}
+//          GET /profiles/{name}/updates | POST /profiles/{name}/update {version}
 //          POST /backup | GET /backups | POST /restore {key, profile}
 //          GET /ops/{commandId}
 import { EC2Client, DescribeInstancesCommand, StartInstancesCommand } from "@aws-sdk/client-ec2";
@@ -362,6 +363,94 @@ async function postRestore(body) {
   await requireRunning();
   const safeKey = key.replace(/'/g, "");
   return reply(202, { commandId: await runCommand(`/opt/hamaro/restore.sh '${safeKey}' '${profile}'`) });
+}
+
+// ---------- one-click Minecraft version updates ----------
+// Same source of truth as the nightly maintenance Lambda: PaperMC's published
+// version list. A "family" (26.2 -> 26.3) is where new content ships; a patch
+// (26.2 -> 26.2.1) is bugfixes within the family. Only versions Paper actually
+// publishes can be applied, and only upgrades — worlds are one-way.
+
+const STABLE_VER_RE = /^\d+\.\d+(\.\d+)?$/;
+function cmpVer(a, b) {
+  const A = a.split(".").map(Number), B = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(A.length, B.length); i++) {
+    if ((A[i] || 0) !== (B[i] || 0)) return (A[i] || 0) - (B[i] || 0);
+  }
+  return 0;
+}
+const familyOf = (v) => v.split(".").slice(0, 2).join(".");
+
+async function fetchPaperVersions() {
+  const r = await fetch("https://fill.papermc.io/v3/projects/paper");
+  if (!r.ok) throw new Error("PaperMC version service answered " + r.status);
+  const families = (await r.json()).versions; // { "26.2": ["26.2", "26.2-rc-2"], ... }
+  return Object.values(families).flat().filter((v) => STABLE_VER_RE.test(v)).sort(cmpVer);
+}
+
+function envTypeVersion(env) {
+  return {
+    type: (env.match(/^TYPE=(.+)$/m)?.[1] || "").trim().toUpperCase(),
+    version: (env.match(/^VERSION=(.+)$/m)?.[1] || "").trim(),
+  };
+}
+
+// What could this world move to? { patch } = safe bugfix, { family } = new content.
+async function getProfileUpdates(name) {
+  const r = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: `profiles/${name}/profile.env` }));
+  const { type, version } = envTypeVersion(await r.Body.transformToString());
+  if (type !== "PAPER" || !STABLE_VER_RE.test(version)) {
+    return reply(200, { current: version, checkable: false, note: "update checks cover vanilla (Paper) worlds with a plain pinned VERSION — for modded worlds, follow the modpack's own versions in Settings" });
+  }
+  const all = await fetchPaperVersions();
+  const newer = all.filter((v) => cmpVer(v, version) > 0);
+  const patch = newer.filter((v) => familyOf(v) === familyOf(version)).at(-1) || null;
+  const family = newer.filter((v) => familyOf(v) !== familyOf(version)).at(-1) || null;
+  return reply(200, { current: version, checkable: true, patch, family, upToDate: !patch && !family });
+}
+
+// The clickops upgrade. When the target world is live, the instance sequences
+// everything in one watched command — the backup succeeds BEFORE the version
+// changes, so a failed backup leaves the world untouched. Otherwise it's just
+// a pin in S3 that applies on the world's next start/switch (which was backed
+// up when it last stopped, and backs up again on switch).
+async function postProfileUpdate(name, body) {
+  const target = (body?.version || "").trim();
+  if (!STABLE_VER_RE.test(target)) return reply(400, { error: "version must be a plain release like 26.3 or 26.2.1" });
+  const r = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: `profiles/${name}/profile.env` }));
+  const env = await r.Body.transformToString();
+  const { type, version } = envTypeVersion(env);
+  if (type !== "PAPER") {
+    return reply(400, { error: "one-click updates cover vanilla (Paper) worlds — modded worlds must move with their modpack (edit Settings)" });
+  }
+  if (STABLE_VER_RE.test(version) && cmpVer(target, version) <= 0) {
+    return reply(400, { error: `"${name}" is already on ${version} — world upgrades are one-way, so ${target} isn't a move it can make` });
+  }
+  if (!(await fetchPaperVersions()).includes(target)) {
+    return reply(400, { error: `PaperMC hasn't published ${target} — pick a version from the update check` });
+  }
+
+  const active = await param("/hamaro/active-profile").catch(() => "");
+  if (name === active && (await instanceState()).state === "running") {
+    const script = [
+      "set -euo pipefail",
+      "source /etc/hamaro/env",
+      "/opt/hamaro/backup.sh --force",
+      `aws s3 cp "s3://\${HAMARO_BUCKET}/profiles/${name}/profile.env" /tmp/hamaro-update.env --no-progress`,
+      `sed -i 's/^VERSION=.*$/VERSION=${target}/' /tmp/hamaro-update.env`,
+      `aws s3 cp /tmp/hamaro-update.env "s3://\${HAMARO_BUCKET}/profiles/${name}/profile.env" --no-progress`,
+      "/opt/hamaro/apply-config.sh",
+    ].join("\n");
+    return reply(202, { updating: target, commandId: await runCommand(script) });
+  }
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET, Key: `profiles/${name}/profile.env`,
+    Body: env.replace(/^VERSION=.*$/m, `VERSION=${target}`), ContentType: "text/plain",
+  }));
+  return reply(200, {
+    updating: target,
+    note: name === active ? "saved — updates when the server next starts" : "saved — updates when you next switch to this world",
+  });
 }
 
 // ---------- Admin v2: players, items, warps, map ----------
@@ -832,6 +921,12 @@ export async function handler(event) {
     }
     if ((m = path.match(/^\/profiles\/([^/]+)\/activate$/)) && PROFILE_RE.test(m[1]) && method === "POST") {
       return await activateProfile(m[1]);
+    }
+    if ((m = path.match(/^\/profiles\/([^/]+)\/updates$/)) && PROFILE_RE.test(m[1]) && method === "GET") {
+      return await getProfileUpdates(m[1]);
+    }
+    if ((m = path.match(/^\/profiles\/([^/]+)\/update$/)) && PROFILE_RE.test(m[1]) && method === "POST") {
+      return await postProfileUpdate(m[1], body);
     }
     if ((m = path.match(/^\/ops\/([\w-]+)$/)) && method === "GET") return await getOp(m[1]);
 

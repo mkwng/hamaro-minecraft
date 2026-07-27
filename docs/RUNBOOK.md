@@ -109,11 +109,15 @@ The website is plain files in `web/` — `aws s3 sync web/ s3://<site-bucket>/` 
 
 ## Version upgrades (Minecraft or the container image)
 
-1. **Back up first** (website → Backups → Back up now). World upgrades are ONE-WAY.
-2. Minecraft version: website → Settings → change `VERSION=` → Save + apply. (Or edit the S3 profile.env.)
-3. Container image: bump `mcImageTag` in `infra/lib/config.ts`, `cdk deploy HamaroGame`, restart the
+1. **Minecraft version: it's a button.** Website → World → open the world → Settings. The version
+   card at the top checks PaperMC and shows "Update to X (bugfix)" / "✨ Update to X (new content)"
+   when something newer exists. Pressing it backs up first, then applies (restarting the server if
+   that world is live). World upgrades are ONE-WAY — the pre-update backup is the only way back.
+   (Escape hatch: edit `VERSION=` in the raw env box below the card, or the S3 profile.env directly.
+   Modded worlds don't get the button — they must move with their modpack.)
+2. Container image: bump `mcImageTag` in `infra/lib/config.ts`, `cdk deploy HamaroGame`, restart the
    server. The instance auto-mirrors the new tag from Docker Hub into ECR on next boot (`ensure-image.sh`).
-4. Node Lambda runtime deprecated (AWS emails you): bump `NODEJS_22_X` in `infra/lib/game-stack.ts`
+3. Node Lambda runtime deprecated (AWS emails you): bump `NODEJS_22_X` in `infra/lib/game-stack.ts`
    to the current runtime and `cdk deploy`. The handlers use zero npm dependencies precisely so this
    is always a one-line change.
 
